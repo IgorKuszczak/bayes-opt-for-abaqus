@@ -1,0 +1,41 @@
+---
+model_name: 'hip_latticing'
+notebook_name: 'hip_latticing'
+
+optimisation:
+ experiment_name: 'hip_latticing'
+ minimize: False
+
+ # Models available:
+ # GPEI - Gaussian Processes with Expected Improvement,
+ # GPKG - GP with Knowledge Gradient
+ # GPMES - GP with Maximum Entropy Search
+
+ model: 'GPEI'
+ num_of_iters: 20
+ num_sobol_steps: 5
+
+ num_of_params: 2
+ uniform_params: False
+
+ up_bound:
+ lo_bound:
+
+# There are 2 parameters: one for lattice strut thicknesses, and one for cell wall length - we asume cubic cells for now
+
+ parameters:
+  - name: 'cell_size'
+    type: 'range'
+    bounds: [20.0, 40.0]
+    value_type: 'float'
+  - name: 'lattice_thickness'
+    type: 'range'
+    bounds: [2.0,6.0]
+    value_type: 'float'
+
+
+# We maximize weight savings subject to constraints
+ objective_metric: 'weight_savings'
+
+ outcome_constraints: ['stress <= 40e9']
+ constraint_metrics: ['stress']

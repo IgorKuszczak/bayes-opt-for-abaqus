@@ -1,0 +1,183 @@
+from pathlib import Path
+from datetime import datetime
+from fpdf import FPDF
+import os
+import json
+from sys import exit
+import glob
+import subprocess
+
+
+# Datestrings used in filenames
+def get_datestring():
+    now = datetime.now()
+    dt_string = now.strftime("%d/%m/%Y at %H:%M:%S")
+    dt_string2 = now.strftime('%d%m%Y%H%M%S')
+
+    return dt_string, dt_string2
+
+
+# Standalone functions
+def yes_or_no(question):
+    while "the answer is invalid":
+        reply = str(input(question + ' (y/n): ')).lower().strip()
+        if reply[:1] == 'y':
+            return True
+        if reply[:1] == 'n':
+            return False
+
+
+def clean_directory(dir_path):
+    [f.unlink() for f in Path(dir_path).glob("*") if f.is_file()]
+
+
+def clean_replay():
+    directory = os.path.dirname(os.path.realpath(__file__))
+
+    filelist = os.listdir(directory)
+
+    for item in filelist:
+        if '.rpy' in item or '.rec' in item:
+            try:
+                os.remove(os.path.join(directory, item))
+            except OSError:
+                pass
+
+
+def generate_report(opt_config, means, best_parameters):
+    pagewidth = 210
+    margin = 50
+
+    dt_string, dt_string2 = get_datestring()
+
+    def create_title(pdf):
+        pdf.set_font('Helvetica', 'B', 24)
+        pdf.ln(15)
+        pdf.write(5, 'Bayesian Optimization Report')
+        pdf.ln(10)
+        pdf.set_font('Helvetica', '', 16)
+        pdf.write(5, f'Generated on {dt_string}')
+        pdf.line(10, 45, 200, 45)
+        pdf.ln(5)
+
+    def create_section(pdf, section_title):
+        pdf.ln(10)
+        pdf.set_font('Helvetica', 'BU', 16)
+        pdf.write(5, section_title)
+        pdf.set_font('Helvetica', '', 12)
+        pdf.ln(7)
+
+    def create_subsection(pdf, section_title):
+        pdf.set_font('Helvetica', 'B', 14)
+        pdf.write(5, section_title)
+        pdf.set_font('Helvetica', '', 12)
+        pdf.ln(7)
+
+    def create_textblock(pdf, line_dict):
+        pdf.set_font('Helvetica', '', 12)
+        for k, v in line_dict.items():
+            pdf.set_font('Helvetica', 'BI', 12)
+            pdf.write(5, f'{k}: ')
+            pdf.set_font('Helvetica', '', 12)
+            pdf.write(5, f'{v}')
+            pdf.ln(5)
+        pdf.ln(5)
+
+    def draw_plots(pdf, plot_paths):
+
+        plots = glob.glob(plot_paths)
+
+        for idx, plot in enumerate(plots, start=1):
+            plot_name = os.path.basename(plot).split('.')[0]
+            create_subsection(pdf, plot_name)
+            pdf.image(plot, x=margin / 2, y=None, w=pagewidth - margin)
+            if idx % 2 == 0:
+                pdf.add_page()
+            else:
+                pdf.ln(10)
+
+    pdf = FPDF()
+
+    plot_paths = os.path.join(os.getcwd(), 'reports', 'plots', '*.png')
+    pdf.add_page()
+    create_title(pdf)
+    create_section(pdf, 'Configuration Data')
+    create_textblock(pdf, opt_config)
+    create_section(pdf, 'Optimisation Results')
+    create_textblock(pdf, means)
+    create_textblock(pdf, best_parameters)
+    pdf.add_page()
+    create_section(pdf, 'Plots')
+    draw_plots(pdf, plot_paths)
+
+    report_name = f'report_{dt_string2}.pdf'
+    report_dir = os.path.join(os.getcwd(), 'reports')
+    report_path = os.path.join(report_dir, report_name)
+
+    Path(report_dir).mkdir(parents=True, exist_ok=True)
+    pdf.output(report_path, 'F')
+
+
+# Simulation class
+
+class Simulation:
+
+    def __init__(self, input_dir, template_dir, output_dir, notebook_dir,exe_path, result_metrics):
+
+        self.input_dir = input_dir
+        self.output_dir = output_dir
+        self.template_dir = template_dir
+
+        self.notebook_dir = notebook_dir
+        self.exe_path = exe_path
+        self.result_metrics = result_metrics
+
+        self.iterator = 0
+
+    def get_results(self, parametrization):
+
+        # to run the first iteration we modify the 'template' input found in the models directory, and then proceed to
+        # save it into temp
+
+
+        if self.iterator == 0:
+            input = self.template_dir
+        else:
+            input = self.input_dir
+
+        self.iterator += 1
+
+        with open(input, 'r') as f:
+            data = json.load(f)
+
+        for param_name, param_value in parametrization.items():
+            # indices in data dictionary with names corresponding to parameters in parametrization dict
+            for x in data['inputs']:
+                if x['name'] == param_name:
+                    x['value'] = param_value
+
+        # Overwrite the values in input file
+        with open(self.input_dir, 'w') as f:
+            json.dump(data, f, indent=4)
+
+        # nTopCL arguments in a list
+        arguments = [self.exe_path, "-j", self.input_dir, "-o", self.output_dir, self.notebook_dir]
+
+        # call nTopCl from cmd
+        # print(" ".join(arguments))
+        output, error = subprocess.Popen(arguments, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+
+        # print output and errors from the cmd
+        print(output.decode("utf-8"))
+
+        # Read the results and return as array
+        # This would be easier to deal with if we returned a dictionary (?)
+        with open(self.output_dir, 'r') as f:
+            results = json.load(f)
+
+        results = [float(results[0]['value']['value'][idx]['string']) for idx in range(len(self.result_metrics))]
+        result_dict = dict(zip(self.result_metrics, results))
+
+        return result_dict
+
+

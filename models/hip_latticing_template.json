@@ -1,0 +1,20 @@
+{
+    "description": "",
+    "inputs": [
+        {
+            "description": "",
+            "name": "cell_size",
+            "type": "real",
+            "units": "mm",
+            "value": 30.0
+        },
+        {
+            "description": "",
+            "name": "lattice_thickness",
+            "type": "real",
+            "units": "mm",
+            "value": 4.0
+        }
+    ],
+    "title": "Hip Latticing"
+}
