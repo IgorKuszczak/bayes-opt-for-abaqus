@@ -61,6 +61,13 @@ output_dir = os.path.abspath(os.path.join(temp_dir, output_filename))
 template_filename = model_name + '_template.json'
 template_dir = os.path.abspath(os.path.join(model_dir, template_filename))
 
+#function to check if template exists if not create template 
+def check_template(template_filename):
+    for template_filename in temp_dir:
+        if Path(template_filename).is_file():
+        print ("Model exists")
+    else:
+        ntop.exe -t template_filename.ntop -o .\model_dir, template_filename\
 
 def main():
     # result metrics include the ones used to define constraints
