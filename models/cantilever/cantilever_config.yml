@@ -1,0 +1,40 @@
+---
+model_name: 'cantilever'
+notebook_name: 'cantilever'
+
+optimisation:
+ experiment_name: 'cantilever'
+ minimize: True
+
+ # Models available:
+ # GPEI - Gaussian Processes with Expected Improvement,
+ # GPKG - GP with Knowledge Gradient
+ # GPMES - GP with Maximum Entropy Search
+
+ model: 'GPEI'
+ num_of_iters: 15
+ num_sobol_steps: 5
+
+ num_of_params: 2
+ uniform_params: False
+
+ up_bound:
+ lo_bound:
+
+
+ parameters:
+  - name: 'width'
+    type: 'range'
+    bounds: [5.0, 30.0]
+    value_type: 'float'
+  - name: 'height'
+    type: 'range'
+    bounds: [5.0,30.0]
+    value_type: 'float'
+
+
+# We maximize weight savings subject to constraints
+ objective_metric: 'stress'
+
+ outcome_constraints: []
+ constraint_metrics: []
