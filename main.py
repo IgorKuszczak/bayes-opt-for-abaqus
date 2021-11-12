@@ -18,89 +18,30 @@ import numpy as np
 # ntop command line .exe file (CHANGE THIS!!!)
 exe_path = r'C:\Program Files\nTopology\nTopology\ntopcl.exe'
 
+# reading configuration
 current_dir = os.getcwd()
-model_dir = os.path.abspath(os.path.join(current_dir, 'models'))
-
-# setting up directories
-db_dir = os.path.abspath(os.path.join(current_dir, 'database'))
-temp_dir = os.path.abspath(os.path.join(current_dir, '_temp'))
-
-# checking if directories exist and creating new directories if not
-directory_list = [model_dir, temp_dir, db_dir]
-for directory in directory_list:
-    Path(directory).mkdir(parents=True, exist_ok=True)
-
-# reading configuration
-#config_file = 'cantilever_config.yml'  # This is used to switch between models
-#config_dir = os.path.abspath(os.path.join(model_dir, config_file))
-
-# extracting parameters
-#with open(config_dir) as f:
- #   config = yaml.load(f, Loader=yaml.FullLoader)
-
-#opt_config = config['optimisation']  # Optimisation setup
-
-# name parameters
-#model_name = config['model_name']
-
-# ntopology notebook
-#notebook_name = config['notebook_name']
-#notebook_dir = os.path.abspath(os.path.join(model_dir, f'{notebook_name}.ntop'))
-
-## Inputs and outputs are stored in the _temp directory
-# input file
-#input_filename = model_name + '_input.json'
-#input_dir = os.path.abspath(os.path.join(temp_dir, input_filename))
-
-# output file
-#output_filename = model_name + '_output.txt'
-#output_dir = os.path.abspath(os.path.join(temp_dir, output_filename))
-
-## Input template is found in models directory
-# input template
-#template_filename = model_name + '_template.json'
-#template_dir = os.path.abspath(os.path.join(model_dir, template_filename))
-
-# name parameters
-model_name = config['model_name']
-
-template_filename = model_name + '_template.json'
-
-#function to check if template exists if not create template 
-def check_template(template_filename):
-    for template_filename in temp_dir:
-        if Path(template_filename).is_file():
-        print ("Model exists")
-    else:
-        ntop.exe -t template_filename.ntop -o .\model_dir, template_filename\
-        
-# reading configuration
-config_file = 'model_name_config.yml'  # This is used to switch between models
-config_dir = os.path.abspath(os.path.join(model_dir, template_filename, config_file))
+config_file = 'cantilever/cantilever_config.yml'  # this is used to switch between models
+config_dir = os.path.abspath(os.path.join(current_dir, 'models', config_file))
 
 # extracting parameters
 with open(config_dir) as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 
-opt_config = config['optimisation']  # Optimisation setup
+model_name = config['model_name']  # model name
+opt_config = config['optimisation']  # optimisation setup
 
-# ntopology notebook
+model_dir = os.path.abspath(os.path.join(current_dir, 'models', model_name))
+db_dir = os.path.abspath(os.path.join(current_dir, 'database'))
+
+# checking if directories exist and creating new directories if not
+directory_list = [model_dir, db_dir]
+for directory in directory_list:
+    Path(directory).mkdir(parents=True, exist_ok=True)
+
+# nTopology notebook
 notebook_name = config['notebook_name']
 notebook_dir = os.path.abspath(os.path.join(model_dir, f'{notebook_name}.ntop'))
 
-## Inputs and outputs are stored in the _temp directory
-# input file
-input_filename = model_name + '_input.json'
-input_dir = os.path.abspath(os.path.join(temp_dir, template_filename, input_filename))
-
-# output file
-output_filename = model_name + '_output.txt'
-output_dir = os.path.abspath(os.path.join(temp_dir, template_filename, output_filename))
-
-## Input template is found in models directory
-# input template
-template_filename = model_name + '_template.json'
-template_dir = os.path.abspath(os.path.join(model_dir, template_filename))
 
 def main():
     # result metrics include the ones used to define constraints
@@ -110,7 +51,8 @@ def main():
     # we provide directories for temporary input and output JSON files, template for the input JSON,
     # name of the notebook used in the simulation and the result metrics of interest
 
-    sim = Simulation(input_dir, template_dir, output_dir, notebook_dir, exe_path, result_metrics)
+    sim = Simulation(model_dir, notebook_dir, exe_path, result_metrics)
+    sim.check_template()
 
     ## Bayesian Optimization in Service API
 
@@ -136,7 +78,6 @@ def main():
 
     param_names = [param['name'] for param in params]
 
-
     # Define the evaluation function
     def eval_func(parametrization):
 
@@ -147,7 +88,6 @@ def main():
         # return_dict = {k: (getattr(sim, k), 0.0) for k in result_metrics}
 
         return results
-
 
     # Creating an experiment
     ax_client.create_experiment(
@@ -226,7 +166,7 @@ if __name__ == "__main__":
                               else [np.nan] * opt_config['num_of_params']
                               for trial in trial_values])
 
-    #print(arms_by_trial)
+    # print(arms_by_trial)
     distances = np.linalg.norm(np.diff(arms_by_trial, axis=0), ord=2, axis=1)
 
     # Mask for finding feasible solutions

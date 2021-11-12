@@ -122,11 +122,8 @@ def generate_report(opt_config, means, best_parameters):
 
 class Simulation:
 
-    def __init__(self, input_dir, template_dir, output_dir, notebook_dir,exe_path, result_metrics):
-
-        self.input_dir = input_dir
-        self.output_dir = output_dir
-        self.template_dir = template_dir
+    def __init__(self, model_dir, notebook_dir, exe_path, result_metrics):
+        self.model_dir = model_dir
 
         self.notebook_dir = notebook_dir
         self.exe_path = exe_path
@@ -134,20 +131,24 @@ class Simulation:
 
         self.iterator = 0
 
+        self.input_dir = None
+        self.output_dir = None
+
+    def check_template(self):
+        # check if the template exists and if not, create one
+        template_filename = os.path.abspath(os.path.join(self.model_dir, 'input_template.json'))
+        if not Path(template_filename).is_file():
+            arguments = [self.exe_path, '-t', self.notebook_dir, '-o', f'{self.model_dir}/']
+            subprocess.run(arguments)
+
+        self.input_dir = template_filename
+
     def get_results(self, parametrization):
 
-        # to run the first iteration we modify the 'template' input found in the models directory, and then proceed to
-        # save it into temp
-
-
-        if self.iterator == 0:
-            input = self.template_dir
-        else:
-            input = self.input_dir
-
+        self.output_dir = os.path.abspath(os.path.join(self.model_dir, 'output_template.json'))
         self.iterator += 1
 
-        with open(input, 'r') as f:
+        with open(self.input_dir, 'r') as f:
             data = json.load(f)
 
         for param_name, param_value in parametrization.items():
@@ -178,6 +179,6 @@ class Simulation:
         results = [float(results[0]['value']['value'][idx]['string']) for idx in range(len(self.result_metrics))]
         result_dict = dict(zip(self.result_metrics, results))
 
+        # print(results)
+
         return result_dict
-
-
