@@ -31,35 +31,40 @@ for directory in directory_list:
     Path(directory).mkdir(parents=True, exist_ok=True)
 
 # reading configuration
-config_file = 'cantilever_config.yml'  # This is used to switch between models
-config_dir = os.path.abspath(os.path.join(model_dir, config_file))
+#config_file = 'cantilever_config.yml'  # This is used to switch between models
+#config_dir = os.path.abspath(os.path.join(model_dir, config_file))
 
 # extracting parameters
-with open(config_dir) as f:
-    config = yaml.load(f, Loader=yaml.FullLoader)
+#with open(config_dir) as f:
+ #   config = yaml.load(f, Loader=yaml.FullLoader)
 
-opt_config = config['optimisation']  # Optimisation setup
+#opt_config = config['optimisation']  # Optimisation setup
+
+# name parameters
+#model_name = config['model_name']
+
+# ntopology notebook
+#notebook_name = config['notebook_name']
+#notebook_dir = os.path.abspath(os.path.join(model_dir, f'{notebook_name}.ntop'))
+
+## Inputs and outputs are stored in the _temp directory
+# input file
+#input_filename = model_name + '_input.json'
+#input_dir = os.path.abspath(os.path.join(temp_dir, input_filename))
+
+# output file
+#output_filename = model_name + '_output.txt'
+#output_dir = os.path.abspath(os.path.join(temp_dir, output_filename))
+
+## Input template is found in models directory
+# input template
+#template_filename = model_name + '_template.json'
+#template_dir = os.path.abspath(os.path.join(model_dir, template_filename))
 
 # name parameters
 model_name = config['model_name']
 
-# ntopology notebook
-notebook_name = config['notebook_name']
-notebook_dir = os.path.abspath(os.path.join(model_dir, f'{notebook_name}.ntop'))
-
-## Inputs and outputs are stored in the _temp directory
-# input file
-input_filename = model_name + '_input.json'
-input_dir = os.path.abspath(os.path.join(temp_dir, input_filename))
-
-# output file
-output_filename = model_name + '_output.txt'
-output_dir = os.path.abspath(os.path.join(temp_dir, output_filename))
-
-## Input template is found in models directory
-# input template
 template_filename = model_name + '_template.json'
-template_dir = os.path.abspath(os.path.join(model_dir, template_filename))
 
 #function to check if template exists if not create template 
 def check_template(template_filename):
@@ -68,6 +73,34 @@ def check_template(template_filename):
         print ("Model exists")
     else:
         ntop.exe -t template_filename.ntop -o .\model_dir, template_filename\
+        
+# reading configuration
+config_file = 'model_name_config.yml'  # This is used to switch between models
+config_dir = os.path.abspath(os.path.join(model_dir, template_filename, config_file))
+
+# extracting parameters
+with open(config_dir) as f:
+    config = yaml.load(f, Loader=yaml.FullLoader)
+
+opt_config = config['optimisation']  # Optimisation setup
+
+# ntopology notebook
+notebook_name = config['notebook_name']
+notebook_dir = os.path.abspath(os.path.join(model_dir, f'{notebook_name}.ntop'))
+
+## Inputs and outputs are stored in the _temp directory
+# input file
+input_filename = model_name + '_input.json'
+input_dir = os.path.abspath(os.path.join(temp_dir, template_filename, input_filename))
+
+# output file
+output_filename = model_name + '_output.txt'
+output_dir = os.path.abspath(os.path.join(temp_dir, template_filename, output_filename))
+
+## Input template is found in models directory
+# input template
+template_filename = model_name + '_template.json'
+template_dir = os.path.abspath(os.path.join(model_dir, template_filename))
 
 def main():
     # result metrics include the ones used to define constraints
