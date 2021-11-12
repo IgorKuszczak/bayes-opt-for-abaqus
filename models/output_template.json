@@ -1,0 +1,28 @@
+[
+    {
+        "components": [
+            {
+                "components": [],
+                "type": "text",
+                "value": {
+                    "string": "50.0428"
+                }
+            }
+        ],
+        "name": "Vector Output",
+        "type": "text_list",
+        "value": {
+            "dim": {},
+            "value": [
+                {
+                    "string": "50.0428"
+                }
+            ],
+            "version": [
+                1,
+                0,
+                0
+            ]
+        }
+    }
+]

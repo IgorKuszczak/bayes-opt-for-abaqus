@@ -13,7 +13,7 @@
             "name": "height",
             "type": "real",
             "units": "mm",
-            "value": 16.76222878979697
+            "value": 30.0
         }
     ],
     "title": "cantilever"

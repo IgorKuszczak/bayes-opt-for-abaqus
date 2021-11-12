@@ -3,6 +3,7 @@ from ax.plot.contour import _get_contour_predictions
 from ax.plot.slice import _get_slice_predictions
 
 import matplotlib.pyplot as plt
+plt.interactive(False)
 import numpy as np
 import os
 
@@ -59,6 +60,7 @@ class Plot:
         
         plt.xlabel('Trial')
         plt.ylabel('Best objective')
+        plt.show()
         
         
         self.save_plot(plt,'convergence_plot')
@@ -84,6 +86,7 @@ class Plot:
         
         plt.xlabel('Trial')
         plt.ylabel('Objective')
+        plt.show()
         
         self.save_plot(plt,'evaluations_plot')
         
@@ -97,6 +100,7 @@ class Plot:
         plt.ylim(ymin,ymax)
         plt.xlabel('Trial')
         plt.ylabel('Distance |x[n]-x[n-1]|')
+        plt.show()
         # plt.grid()
         
         

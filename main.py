@@ -225,7 +225,8 @@ if __name__ == "__main__":
                               if trial.status.is_completed
                               else [np.nan] * opt_config['num_of_params']
                               for trial in trial_values])
-    print(arms_by_trial)
+
+    #print(arms_by_trial)
     distances = np.linalg.norm(np.diff(arms_by_trial, axis=0), ord=2, axis=1)
 
     # Mask for finding feasible solutions
