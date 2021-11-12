@@ -214,6 +214,7 @@ if __name__ == "__main__":
     save_pdf = True
     save_png = True  # This must be true for generating reports
     plot_dir = os.path.join(os.getcwd(), 'reports', 'plots')
+    Path(plot_dir).mkdir(parents=True, exist_ok=True)
 
     P = utils.plot_utils.Plot(opt_config['num_sobol_steps'], plot_dir, save_pdf, save_png)
     P.clean_plot_dir()
