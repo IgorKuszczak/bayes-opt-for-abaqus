@@ -1,0 +1,38 @@
+[
+    {
+        "components": [
+            {
+                "components": [],
+                "type": "text",
+                "value": {
+                    "string": "5.4509090000000002"
+                }
+            },
+            {
+                "components": [],
+                "type": "text",
+                "value": {
+                    "string": "2.2485982363846331"
+                }
+            }
+        ],
+        "name": "Vector Output",
+        "type": "text_list",
+        "value": {
+            "dim": {},
+            "value": [
+                {
+                    "string": "5.4509090000000002"
+                },
+                {
+                    "string": "2.2485982363846331"
+                }
+            ],
+            "version": [
+                1,
+                0,
+                0
+            ]
+        }
+    }
+]
