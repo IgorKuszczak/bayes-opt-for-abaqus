@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from tqdm import tqdm
 import numpy as np
+import matplotlib.pyplot as plt
 
 # This is an example file for how to do sequential runs in nTop while using the methods defined in the Simulation object
 
@@ -35,11 +36,28 @@ sim.check_template()
 n=2
 
 # Generate a list of ratios to check
-t_l = [0.1,0.2,0.3,0.4]
-print(t_l)
+t_l = np.arange(0.0,1.0,0.05)
 rel_dens = []
-for i in t_l:
+for counter, i in enumerate(t_l, start=1):
+    print(f'Starting iteration {counter}')
     result = list(sim.get_results({'t_l': i}).values())
     rel_dens+= result
+    print(f'Finished iteration: {counter}')
 
-print(rel_dens)
+# Remove ratios where relative density is 1.0 to improve fit
+rel_dens = np.array(rel_dens)
+condition = np.where(rel_dens <= 1.0)
+
+rel_dens_trim = rel_dens[condition]
+t_l_trim = t_l[condition]
+
+plt.title('Relative density vs. t/l ratio for octet truss')
+plt.scatter(t_l, rel_dens, label='data')
+
+poly_fit = np.poly1d(np.polyfit(t_l_trim, rel_dens_trim, 2))
+plt.plot(t_l_trim, poly_fit(t_l_trim), label='polyfit')
+
+plt.xlabel('Thickness to length ratio')
+plt.ylabel('Relative density')
+plt.legend(loc='best')
+plt.show()

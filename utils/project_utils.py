@@ -156,7 +156,6 @@ class Simulation:
             # indices in data dictionary with names corresponding to parameters in parametrization dict
             for x in data['inputs']:
                 if x['name'] == param_name:
-                    print(x['name'])
                     x['value'] = param_value
                 else:
                     print('[WARNING] Mismatch between template and parametrization names')
@@ -182,7 +181,5 @@ class Simulation:
 
         results = [float(results[0]['value']['value'][idx]['string']) for idx in range(len(self.result_metrics))]
         result_dict = dict(zip(self.result_metrics, results))
-
-        # print(results)
 
         return result_dict
