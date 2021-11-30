@@ -131,15 +131,14 @@ class Simulation:
 
         self.iterator = 0
 
-        self.input_dir = None
-        self.output_dir = None
+        self.input_dir = os.path.abspath(os.path.join(self.model_dir, 'input_template.json'))
+        self.output_dir = os.path.abspath(os.path.join(self.model_dir, 'output_template.json'))
 
     def check_template(self):
         # check if the template exists and if not, create one
         template_filename = os.path.abspath(os.path.join(self.model_dir, 'input_template.json'))
-        print(template_filename)
+
         if not Path(template_filename).is_file():
-            print('Yes')
             arguments = [self.exe_path, '-t', self.notebook_dir, '-o', self.model_dir]
             print(arguments)
             subprocess.run(arguments)
@@ -148,19 +147,21 @@ class Simulation:
 
     def get_results(self, parametrization):
 
-        self.output_dir = os.path.abspath(os.path.join(self.model_dir, 'output_template.json'))
-        self.iterator += 1
-
-        with open(self.input_dir, 'r') as f:
+        # We first open the template
+        with open(self.input_dir,'r') as f:
             data = json.load(f)
+
 
         for param_name, param_value in parametrization.items():
             # indices in data dictionary with names corresponding to parameters in parametrization dict
             for x in data['inputs']:
                 if x['name'] == param_name:
+                    print(x['name'])
                     x['value'] = param_value
+                else:
+                    print('[WARNING] Mismatch between template and parametrization names')
 
-        # Overwrite the values in input file
+        # We overwrite the input
         with open(self.input_dir, 'w') as f:
             json.dump(data, f, indent=4)
 

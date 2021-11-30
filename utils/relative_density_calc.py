@@ -1,6 +1,7 @@
 from project_utils import Simulation
 import os
 from pathlib import Path
+from tqdm import tqdm
 import numpy as np
 
 # This is an example file for how to do sequential runs in nTop while using the methods defined in the Simulation object
@@ -19,7 +20,6 @@ directory_list = [model_dir]
 for directory in directory_list:
     Path(directory).mkdir(parents=True, exist_ok=True)
 
-print(model_dir)
 
 notebook_name = 'rel_dens_calc'
 notebook_dir = os.path.abspath(os.path.join(model_dir, f'{notebook_name}.ntop'))
@@ -31,5 +31,15 @@ sim = Simulation(model_dir, notebook_dir, exe_path, result_metrics)
 # Now we check if there is an existing template
 sim.check_template()
 
-result = sim.get_results({'t/l': 0.1})
-print(result)
+# NUmber of points to evaluate
+n=2
+
+# Generate a list of ratios to check
+t_l = [0.1,0.2,0.3,0.4]
+print(t_l)
+rel_dens = []
+for i in t_l:
+    result = list(sim.get_results({'t_l': i}).values())
+    rel_dens+= result
+
+print(rel_dens)
