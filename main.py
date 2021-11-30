@@ -170,6 +170,8 @@ if __name__ == "__main__":
     else:
         best_parameters, values = ax_client.get_best_parameters()
 
+    print(f'Best parameters are: {best_parameters}')
+
     # experiment = ax_client.experiment
     # model = ax_client.generation_strategy.model
     # trials_df = ax_client.generation_strategy.trials_as_df

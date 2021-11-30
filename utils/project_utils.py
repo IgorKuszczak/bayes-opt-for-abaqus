@@ -137,8 +137,11 @@ class Simulation:
     def check_template(self):
         # check if the template exists and if not, create one
         template_filename = os.path.abspath(os.path.join(self.model_dir, 'input_template.json'))
+        print(template_filename)
         if not Path(template_filename).is_file():
-            arguments = [self.exe_path, '-t', self.notebook_dir, '-o', f'{self.model_dir}/']
+            print('Yes')
+            arguments = [self.exe_path, '-t', self.notebook_dir, '-o', self.model_dir]
+            print(arguments)
             subprocess.run(arguments)
 
         self.input_dir = template_filename

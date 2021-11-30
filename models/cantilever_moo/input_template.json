@@ -6,14 +6,14 @@
             "name": "width",
             "type": "real",
             "units": "mm",
-            "value": 30.0
+            "value": 5.0
         },
         {
             "description": "",
             "name": "height",
             "type": "real",
             "units": "mm",
-            "value": 30.0
+            "value": 5.0
         }
     ],
     "title": "cantilever"
