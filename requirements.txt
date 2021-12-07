@@ -1,0 +1,9 @@
+tqdm==4.57.0
+numpy==1.19.2
+ax_platform==0.1.19
+matplotlib==3.3.2
+pywin32==227
+fpdf2==2.3.2
+ax==0.52.0
+fpdf==1.7.2
+PyYAML<=5.1.2
