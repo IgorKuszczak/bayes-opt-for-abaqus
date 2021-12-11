@@ -139,8 +139,9 @@ class Simulation:
         template_filename = os.path.abspath(os.path.join(self.model_dir, 'input_template.json'))
 
         if not Path(template_filename).is_file():
+            print('Generating templates:')
             arguments = [self.exe_path, '-t', self.notebook_dir, '-o', self.model_dir]
-            print(arguments)
+            print(' '.join(arguments))
             subprocess.run(arguments)
 
         self.input_dir = template_filename
@@ -148,17 +149,15 @@ class Simulation:
     def get_results(self, parametrization):
 
         # We first open the template
-        with open(self.input_dir,'r') as f:
+        with open(self.input_dir, 'r') as f:
             data = json.load(f)
-
 
         for param_name, param_value in parametrization.items():
             # indices in data dictionary with names corresponding to parameters in parametrization dict
             for x in data['inputs']:
                 if x['name'] == param_name:
                     x['value'] = param_value
-                else:
-                    print('[WARNING] Mismatch between template and parametrization names')
+
 
         # We overwrite the input
         with open(self.input_dir, 'w') as f:

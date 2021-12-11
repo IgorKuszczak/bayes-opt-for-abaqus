@@ -81,6 +81,7 @@ class Plot:
 
         plt.xlabel('Trial')
         plt.ylabel('Objective')
+        plt.show()
 
         self.save_plot(plt, 'evaluations_plot')
 
