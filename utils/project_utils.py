@@ -158,7 +158,6 @@ class Simulation:
                 if x['name'] == param_name:
                     x['value'] = param_value
 
-
         # We overwrite the input
         with open(self.input_dir, 'w') as f:
             json.dump(data, f, indent=4)

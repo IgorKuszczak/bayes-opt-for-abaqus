@@ -46,15 +46,16 @@ notebook_dir = os.path.abspath(os.path.join(model_dir, f'{notebook_name}.ntop'))
 # multiobjective flag
 multiobjective = opt_config['multiobjective']
 
+
 def main():
     if multiobjective:
         objective_config = opt_config['multi']
         # result_metrics is a list of objective and constraint names
-        result_metrics =opt_config['constraint_metrics'] + [i.get('name') for i in objective_config['objective_metrics']]
+        result_metrics = opt_config['constraint_metrics'] + [i.get('name') for i in
+                                                             objective_config['objective_metrics']]
     else:
         objective_config = opt_config['single']
         result_metrics = opt_config['constraint_metrics'] + [objective_config['objective_metric']]
-
 
     # instantiate the Simulation object
     # we provide directories for temporary input and output JSON files, template for the input JSON,
@@ -103,7 +104,8 @@ def main():
         ax_client.create_experiment(
             name=opt_config['experiment_name'],
             parameters=params,
-            objectives={i['name']: ObjectiveProperties(minimize=i['minimize'], threshold=i['threshold']) for i in objective_config['objective_metrics']},
+            objectives={i['name']: ObjectiveProperties(minimize=i['minimize'], threshold=i['threshold']) for i in
+                        objective_config['objective_metrics']},
             outcome_constraints=opt_config['outcome_constraints'])
     else:
         ax_client.create_experiment(
@@ -153,7 +155,7 @@ def main():
 
 if __name__ == "__main__":
 
-    load_existing_client = False
+    load_existing_client = True
     client_filename = 'final_110_run_02122021143251.json'
     client_filepath = os.path.join(db_dir, client_filename)
 
@@ -164,99 +166,121 @@ if __name__ == "__main__":
         # Run the simulation
         ax_client = main()
 
+    # Plotting
+    save_pdf = True
+    save_png = True  # This must be true for generating reports
+    plot_dir = os.path.join(os.getcwd(), 'reports', 'plots')
+
+    P = utils.plot_utils.Plot(ax_client, plot_dir, save_pdf, save_png)
+    P.clean_plot_dir()
     if multiobjective:
-        best_parameters = ax_client.get_pareto_optimal_parameters()
-
-    else:
-        best_parameters, values = ax_client.get_best_parameters()
-
-        print(f'Best parameters are: {best_parameters}')
-
-        experiment = ax_client.experiment
-        model = ax_client.generation_strategy.model
-        trials_df = ax_client.generation_strategy.trials_as_df
-
-        trial_values = experiment.trials.values()
-
-        best_objectives = np.array([trial.objective_mean
-                                    if trial.status.is_completed
-                                    else 0.0
-                                    for trial in trial_values])
-
-        # Consecutive evaluations
-        arms_by_trial = np.array([list(trial.arm.parameters.values())
-                                  if trial.status.is_completed
-                                  else [np.nan] * opt_config['num_of_params']
-                                  for trial in trial_values])
-
-        # print(arms_by_trial)
-        distances = np.linalg.norm(np.diff(arms_by_trial, axis=0), ord=2, axis=1)
-
-        # Mask for finding feasible solutions
-        mask = np.ones(len(trial_values), dtype=bool)
-
-        ## Evaluating solution feasibility
-        constraint_metrics = opt_config['constraint_metrics']
-
-        for metric in constraint_metrics:
-            vals = [trial.get_metric_mean(metric)
-                    if trial.status.is_completed
-                    else 0
-                    for trial in trial_values]
-            metric_name = str(metric)
-            exec(f'{metric_name}=np.array({vals})')
-
-        for constraint in opt_config['outcome_constraints']:
-            mask = np.logical_and(mask, eval(constraint)).ravel()
-
-        idx = np.where(mask, np.arange(mask.shape[0]), 0)
-        np.maximum.accumulate(idx, axis=0, out=idx)
-        feasible_objectives = best_objectives[idx]
-        feasible_objectives[idx == 0] = feasible_objectives[(idx != 0).argmax(axis=0)]
-        #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11
-
-        # Minimum/maximum accumulate for single objective 1
-        minimize = True
-        if minimize:
-            y = np.minimum.accumulate(feasible_objectives, axis=0)
-            best_trial = np.argmin(feasible_objectives)
-        else:
-            y = np.maximum.accumulate(feasible_objectives, axis=0)
-            best_trial = np.argmax(feasible_objectives)
-
-        y[idx == 0] = np.nan
-        # Best solution as proposed by the client
-        means, covariances = values
-
-        print('The best objectives are:')
-        pprint.pprint(means)
-        print('The best parameters are:')
-        pprint.pprint(best_parameters)
-        print(f'The best trial occured at iteration {best_trial + 1}')
-
-        # Plotting
-        save_pdf = True
-        save_png = True  # This must be true for generating reports
-        plot_dir = os.path.join(os.getcwd(), 'reports', 'plots')
-        Path(plot_dir).mkdir(parents=True, exist_ok=True)
-
-        P = utils.plot_utils.Plot(opt_config['num_sobol_steps'], plot_dir, save_pdf, save_png)
-        P.clean_plot_dir()
         try:
-            P.plot_convergence_plt(y)
-            P.plot_evaluations_plt(best_objectives, mask)
-            P.plot_distances_plt(distances)
-            # This probably should be changed to be not model specific:
-            # P.plot_contour_plt(model, 'eta', 'xi', 'stiff_ratio', best_parameters, 100)
-
+            P.plot_pareto_frontier()
+        except Exception:
+                print('[WARNING] An exception occured while plotting!')
+    else:
+        try:
+            P.plot_single_objective_trials()
+            P.plot_single_objective_convergence()
+            P.plot_single_objective_distances()
         except Exception:
             print('[WARNING] An exception occured while plotting!')
-            pass
 
-            # Generating a report
-        try:
-            generate_report(opt_config, means, best_parameters)
-        except Exception:
-            print(' [WARNING] An exception occured while generating the report')
-        #
-        # clean_replay()  # clean replay files
+    #         # Generating a report
+    #     try:
+    #         generate_report(opt_config, means, best_parameters)
+    #     except Exception:
+    #         print(' [WARNING] An exception occured while generating the report')
+
+    # if multiobjective:
+    #     best_parameters = ax_client.get_pareto_optimal_parameters()
+    #
+    # else:
+    #     best_parameters, values = ax_client.get_best_parameters()
+    #
+    #     print(f'Best parameters are: {best_parameters}')
+    #
+    #     experiment = ax_client.experiment
+    #     model = ax_client.generation_strategy.model
+    #     trials_df = ax_client.generation_strategy.trials_as_df
+    #
+    #     trial_values = experiment.trials.values()
+    #
+    #     best_objectives = np.array([trial.objective_mean
+    #                                 if trial.status.is_completed
+    #                                 else 0.0
+    #                                 for trial in trial_values])
+    #
+    #     # Consecutive evaluations
+    #     arms_by_trial = np.array([list(trial.arm.parameters.values())
+    #                               if trial.status.is_completed
+    #                               else [np.nan] * opt_config['num_of_params']
+    #                               for trial in trial_values])
+    #
+    #     # print(arms_by_trial)
+    #     distances = np.linalg.norm(np.diff(arms_by_trial, axis=0), ord=2, axis=1)
+    #
+    #     # Mask for finding feasible solutions
+    #     mask = np.ones(len(trial_values), dtype=bool)
+    #
+    #     ## Evaluating solution feasibility
+    #     constraint_metrics = opt_config['constraint_metrics']
+    #
+    #     for metric in constraint_metrics:
+    #         vals = [trial.get_metric_mean(metric)
+    #                 if trial.status.is_completed
+    #                 else 0
+    #                 for trial in trial_values]
+    #         metric_name = str(metric)
+    #         exec(f'{metric_name}=np.array({vals})')
+    #
+    #     for constraint in opt_config['outcome_constraints']:
+    #         mask = np.logical_and(mask, eval(constraint)).ravel()
+    #
+    #     idx = np.where(mask, np.arange(mask.shape[0]), 0)
+    #     np.maximum.accumulate(idx, axis=0, out=idx)
+    #     feasible_objectives = best_objectives[idx]
+    #     feasible_objectives[idx == 0] = feasible_objectives[(idx != 0).argmax(axis=0)]
+    #     #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11
+    #
+    #     # Minimum/maximum accumulate for single objective 1
+    #     minimize = True
+    #     if minimize:
+    #         y = np.minimum.accumulate(feasible_objectives, axis=0)
+    #         best_trial = np.argmin(feasible_objectives)
+    #     else:
+    #         y = np.maximum.accumulate(feasible_objectives, axis=0)
+    #         best_trial = np.argmax(feasible_objectives)
+    #
+    #     y[idx == 0] = np.nan
+    #     # Best solution as proposed by the client
+    #     means, covariances = values
+    #
+    #     print('The best objectives are:')
+    #     pprint.pprint(means)
+    #     print('The best parameters are:')
+    #     pprint.pprint(best_parameters)
+    #     print(f'The best trial occured at iteration {best_trial + 1}')
+    #
+    #     # Plotting
+    #     save_pdf = True
+    #     save_png = True  # This must be true for generating reports
+    #     plot_dir = os.path.join(os.getcwd(), 'reports', 'plots')
+    #     Path(plot_dir).mkdir(parents=True, exist_ok=True)
+    #
+    #     P = utils.plot_utils.Plot(opt_config['num_sobol_steps'], plot_dir, save_pdf, save_png)
+    #     P.clean_plot_dir()
+    #     try:
+    #         P.plot_convergence_plt(y)
+    #         P.plot_evaluations_plt(best_objectives, mask)
+    #         P.plot_distances_plt(distances)
+    #         # This probably should be changed to be not model specific:
+    #         # P.plot_contour_plt(model, 'eta', 'xi', 'stiff_ratio', best_parameters, 100)
+    #
+    #     except Exception:
+    #         print('[WARNING] An exception occured while plotting!')
+    #         pass
+    #
+
+    #     #
+    # clean_replay()  # clean replay files

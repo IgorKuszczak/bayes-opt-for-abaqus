@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-t_min = 1
+t_min = 0.5
 t_l_max = np.sqrt(3)/3
 
 def rel_dens_from_t_l(t_l):
@@ -30,7 +30,7 @@ a_range = np.arange(a_min, 8.0*np.sqrt(6), 0.1)
 l_range = (np.sqrt(2)/2)*a_range
 t_max_range = l_range*t_l_max
 
-t_l_buckle_limit = 0.244166
+t_l_buckle_limit = 1/12
 print(t_l_buckle_limit)
 # plt.figure()
 # plt.title('Cell size (a) versus maximum strut thickness (t_max)')
