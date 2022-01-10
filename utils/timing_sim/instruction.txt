@@ -4,3 +4,6 @@ timecmd nTopCL.exe timing_sim.ntop
 
 in the Command Window (cmd). Other simulations can be timed using the same batch script. However, it has to be added to PATH
 or be in the same directory as the nTop notebook
+
+The sequential run is called as follows (for 2 simulations):
+sequential_run 2
