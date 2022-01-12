@@ -2,10 +2,6 @@ import os
 import yaml
 from pathlib import Path
 import pprint
-
-pprint.sorted = lambda x, key=None: x
-from tqdm import tqdm
-
 from ax.service.ax_client import AxClient
 from ax.service.utils.instantiation import ObjectiveProperties
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
@@ -16,12 +12,14 @@ import utils.plot_utils
 
 import numpy as np
 
+pprint.sorted = lambda x, key=None: x
+
 # ntop command line .exe file (CHANGE THIS!!!)
 exe_path = r'C:\Program Files\nTopology\nTopology\ntopcl.exe'
 
 # reading configuration
 current_dir = os.getcwd()
-config_file = 'mbb_latticed/mbb_latticed_config.yml'  # this is used to switch between models
+config_file = 'cantilever_moo/cantilever_moo_config.yml'  # this is used to switch between models
 config_dir = os.path.abspath(os.path.join(current_dir, 'models', config_file))
 
 # extracting parameters
@@ -90,12 +88,8 @@ def main():
 
     # Define the evaluation function
     def eval_func(parametrization):
-
         x = np.array([parametrization.get(name) for name in param_names])
-
         results = sim.get_results(parametrization)
-
-        # return_dict = {k: (getattr(sim, k), 0.0) for k in result_metrics}
 
         return results
 
@@ -115,36 +109,47 @@ def main():
             minimize=objective_config['minimize'],  # Optional, defaults to False.
             outcome_constraints=opt_config['outcome_constraints'])
 
-    num_of_iterations = opt_config['num_of_iters']
+    NUM_OF_ITERS = opt_config['num_of_iters']
+
+    # Manual override used for dev
+    NUM_OF_ITERS = 30
+    BATCH_SIZE = 3
+
     abandoned_trials_count = 0
 
-    for _ in range(num_of_iterations):
+    for i in range(NUM_OF_ITERS // BATCH_SIZE + 1):
+        trials_to_evaluate = {}
+        for _ in range(BATCH_SIZE):
+            parameterization, trial_index = ax_client.get_next_trial()
+            trials_to_evaluate[trial_index] = parameterization
 
-        parameters, trial_index = ax_client.get_next_trial()
+            try:
+                results = {trial_index: eval_func(parameterization) for
+                           trial_index, parameterization in
+                           trials_to_evaluate.items()}
+            except KeyboardInterrupt:
+                break
+                print('Program interrupted by user')
 
-        try:
-            data = eval_func(parameters)
-        except KeyboardInterrupt:
-            break
-            print('Program interrupted by user')
-            clean_replay()
+            except Exception as e:
+                ax_client.abandon_trial(trial_index=trial_index)
+                abandoned_trials_count += 1
+                print('[WARNING] Abandoning trial due to processing errors.')
+                print(e)
+                if abandoned_trials_count > 0.1 * NUM_OF_ITERS:
+                    print(
+                        '[WARNING] More than 10 % of iterations were abandoned. Consider improving the parametrization.')
+                    # break
+                continue
 
-        except Exception:
-            ax_client.abandon_trial(trial_index=trial_index)
-            abandoned_trials_count += 1
-            print('[WARNING] Abandoning trial due to processing errors.')
-            if abandoned_trials_count > 0.1 * num_of_iterations:
-                print('[WARNING] More than 10 % of iterations were abandoned. Consider improving the parametrization.')
-                # break
-            continue
-
-        ax_client.complete_trial(trial_index=trial_index, raw_data=data)
+        for trial_index in results:
+            ax_client.complete_trial(trial_index, results.get(trial_index))
 
     try:
         # Save `AxClient` to a JSON snapshot.
         _, dt_string = get_datestring()
 
-        db_save_name = f'final_110_run_{dt_string}.json'
+        db_save_name = f'simulation_run_{dt_string}.json'
         ax_client.save_to_json_file(filepath=os.path.join(db_dir, db_save_name))
 
     except Exception:
@@ -155,8 +160,8 @@ def main():
 
 if __name__ == "__main__":
 
-    load_existing_client = True
-    client_filename = 'final_110_run_02122021143251.json'
+    load_existing_client = False
+    client_filename = 'simulation_run_12012022100307.json'
     client_filepath = os.path.join(db_dir, client_filename)
 
     if load_existing_client:
@@ -175,112 +180,22 @@ if __name__ == "__main__":
     P.clean_plot_dir()
     if multiobjective:
         try:
-            P.plot_pareto_frontier()
-        except Exception:
-                print('[WARNING] An exception occured while plotting!')
+            P.plot_moo_trials()
+            P.plot_posterior_pareto_frontier()
+        except Exception as e:
+            print('[WARNING] An exception occured while plotting!')
+            print(e)
     else:
         try:
             P.plot_single_objective_trials()
             P.plot_single_objective_convergence()
             P.plot_single_objective_distances()
-        except Exception:
+        except Exception as e:
             print('[WARNING] An exception occured while plotting!')
+            print(e)
 
     #         # Generating a report
     #     try:
     #         generate_report(opt_config, means, best_parameters)
     #     except Exception:
     #         print(' [WARNING] An exception occured while generating the report')
-
-    # if multiobjective:
-    #     best_parameters = ax_client.get_pareto_optimal_parameters()
-    #
-    # else:
-    #     best_parameters, values = ax_client.get_best_parameters()
-    #
-    #     print(f'Best parameters are: {best_parameters}')
-    #
-    #     experiment = ax_client.experiment
-    #     model = ax_client.generation_strategy.model
-    #     trials_df = ax_client.generation_strategy.trials_as_df
-    #
-    #     trial_values = experiment.trials.values()
-    #
-    #     best_objectives = np.array([trial.objective_mean
-    #                                 if trial.status.is_completed
-    #                                 else 0.0
-    #                                 for trial in trial_values])
-    #
-    #     # Consecutive evaluations
-    #     arms_by_trial = np.array([list(trial.arm.parameters.values())
-    #                               if trial.status.is_completed
-    #                               else [np.nan] * opt_config['num_of_params']
-    #                               for trial in trial_values])
-    #
-    #     # print(arms_by_trial)
-    #     distances = np.linalg.norm(np.diff(arms_by_trial, axis=0), ord=2, axis=1)
-    #
-    #     # Mask for finding feasible solutions
-    #     mask = np.ones(len(trial_values), dtype=bool)
-    #
-    #     ## Evaluating solution feasibility
-    #     constraint_metrics = opt_config['constraint_metrics']
-    #
-    #     for metric in constraint_metrics:
-    #         vals = [trial.get_metric_mean(metric)
-    #                 if trial.status.is_completed
-    #                 else 0
-    #                 for trial in trial_values]
-    #         metric_name = str(metric)
-    #         exec(f'{metric_name}=np.array({vals})')
-    #
-    #     for constraint in opt_config['outcome_constraints']:
-    #         mask = np.logical_and(mask, eval(constraint)).ravel()
-    #
-    #     idx = np.where(mask, np.arange(mask.shape[0]), 0)
-    #     np.maximum.accumulate(idx, axis=0, out=idx)
-    #     feasible_objectives = best_objectives[idx]
-    #     feasible_objectives[idx == 0] = feasible_objectives[(idx != 0).argmax(axis=0)]
-    #     #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11
-    #
-    #     # Minimum/maximum accumulate for single objective 1
-    #     minimize = True
-    #     if minimize:
-    #         y = np.minimum.accumulate(feasible_objectives, axis=0)
-    #         best_trial = np.argmin(feasible_objectives)
-    #     else:
-    #         y = np.maximum.accumulate(feasible_objectives, axis=0)
-    #         best_trial = np.argmax(feasible_objectives)
-    #
-    #     y[idx == 0] = np.nan
-    #     # Best solution as proposed by the client
-    #     means, covariances = values
-    #
-    #     print('The best objectives are:')
-    #     pprint.pprint(means)
-    #     print('The best parameters are:')
-    #     pprint.pprint(best_parameters)
-    #     print(f'The best trial occured at iteration {best_trial + 1}')
-    #
-    #     # Plotting
-    #     save_pdf = True
-    #     save_png = True  # This must be true for generating reports
-    #     plot_dir = os.path.join(os.getcwd(), 'reports', 'plots')
-    #     Path(plot_dir).mkdir(parents=True, exist_ok=True)
-    #
-    #     P = utils.plot_utils.Plot(opt_config['num_sobol_steps'], plot_dir, save_pdf, save_png)
-    #     P.clean_plot_dir()
-    #     try:
-    #         P.plot_convergence_plt(y)
-    #         P.plot_evaluations_plt(best_objectives, mask)
-    #         P.plot_distances_plt(distances)
-    #         # This probably should be changed to be not model specific:
-    #         # P.plot_contour_plt(model, 'eta', 'xi', 'stiff_ratio', best_parameters, 100)
-    #
-    #     except Exception:
-    #         print('[WARNING] An exception occured while plotting!')
-    #         pass
-    #
-
-    #     #
-    # clean_replay()  # clean replay files
