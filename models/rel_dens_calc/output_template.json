@@ -1,0 +1,28 @@
+[
+    {
+        "components": [
+            {
+                "components": [],
+                "type": "text",
+                "value": {
+                    "string": "0.72731273787528106"
+                }
+            }
+        ],
+        "name": "relative_density",
+        "type": "text_list",
+        "value": {
+            "dim": {},
+            "value": [
+                {
+                    "string": "0.72731273787528106"
+                }
+            ],
+            "version": [
+                1,
+                0,
+                0
+            ]
+        }
+    }
+]

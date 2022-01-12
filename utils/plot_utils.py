@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
-from ax.plot.contour import _get_contour_predictions
 from ax.plot.pareto_utils import compute_posterior_pareto_frontier
 from ax.plot.pareto_frontier import plot_pareto_frontier
 from .project_utils import clean_directory
@@ -110,7 +109,27 @@ class Plot:
         plt.show()
 
     # Multiple Objective Plotting
-    def plot_pareto_frontier(self):
+    def plot_moo_trials(self):
+        objective_names = [i.metric.name for i in self.objective.objectives]
+
+        fig, axes = plt.subplots()
+        df = self.trials_df
+        objective_values = {i: df.get(i).values for i in objective_names}
+        x, y = objective_values.values()
+
+        axes.scatter(x, y, s=70, c=df.index, cmap='viridis')  # All trials
+        fig.colorbar(axes.collections[0], ax=axes, label='trial #')
+
+        # for idx, label in enumerate(df.index.values):
+        #     axes.annotate(label, (x[idx], y[idx]))
+
+        plt.xlabel(objective_names[0])
+        plt.ylabel(objective_names[1])
+        axes.set_title('Consecutive MOO Trials')
+        fig.tight_layout()
+        plt.show()
+
+    def plot_posterior_pareto_frontier(self):
         objective_names = [i.metric.name for i in self.objective.objectives]
         frontier = compute_posterior_pareto_frontier(
             experiment=self.experiment,
@@ -118,20 +137,17 @@ class Plot:
             primary_objective=self.objective.objectives[0].metric,
             secondary_objective=self.objective.objectives[1].metric,
             absolute_metrics=objective_names,  # we choose all metrics
-            num_points=10,  # number of points in the pareto frontier
+            num_points=20,  # number of points in the pareto frontier
         )
 
-        objective_names = [i.metric.name for i in self.objective.objectives]
-
         fig, axes = plt.subplots()
-        df = self.trials_df
-        axes.scatter(*[df.get(i) for i in objective_names], c=df.index, cmap='viridis')  # All trials
-        axes.colorbar(label='trial #')
-        axes.plot(*[frontier.means[i] for i in objective_names], marker='*', color='k')  # Pareto front
+        axes.scatter(*[frontier.means[i] for i in objective_names], s=70, c='k')  # Pareto front
 
         plt.xlabel(objective_names[0])
         plt.ylabel(objective_names[1])
-        plt.legend(['Evaluations', 'Pareto Frontier'])
+        axes.set_title('Posterior Pareto Frontier')
+        fig.tight_layout()
+        plt.show()
 
     # Plot utilities
     def clean_plot_dir(self):

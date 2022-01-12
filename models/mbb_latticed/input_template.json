@@ -1,0 +1,44 @@
+{
+    "description": "",
+    "inputs": [
+        {
+            "description": "Threshold used to extract the TO results",
+            "name": "to_threshold",
+            "type": "real",
+            "value": 0.19611348062753678
+        },
+        {
+            "description": "Cell Size used to tesselate the space with lattices",
+            "name": "cell_size",
+            "type": "real",
+            "units": "mm",
+            "value": 3.668146848678589
+        },
+        {
+            "description": "",
+            "name": "rot_y",
+            "type": "real",
+            "units": "deg",
+            "value": 30.82223206758499
+        },
+        {
+            "description": "Minimum number of connections in the orthofoam lattice",
+            "name": "target_valency",
+            "type": "integer",
+            "value": 0
+        },
+        {
+            "description": "Minimum relative density",
+            "name": "RD_min",
+            "type": "real",
+            "value": 0.10266113597899676
+        },
+        {
+            "description": "",
+            "name": "RD_max",
+            "type": "real",
+            "value": 0.375864377617836
+        }
+    ],
+    "title": "MBB_Problem"
+}

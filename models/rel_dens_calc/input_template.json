@@ -1,0 +1,12 @@
+{
+    "description": "This notebook is used in a Python script to determine the relationship between the relative density and thickness to unit cell size ratio and later inverse it",
+    "inputs": [
+        {
+            "description": "Ratio of thickness to strut length l, where l = a*sqrt(2)/2",
+            "name": "t_l",
+            "type": "real",
+            "value": 0.45
+        }
+    ],
+    "title": "rel_dens_calc"
+}

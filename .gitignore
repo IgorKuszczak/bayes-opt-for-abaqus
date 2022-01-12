@@ -3,4 +3,7 @@
 **/__pycache__
 **/database
 **/reports
-**/models
+*/.ipynb
+.pyc
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*

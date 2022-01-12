@@ -1,0 +1,52 @@
+---
+model_name: 'cantilever_moo'
+notebook_name: 'cantilever_moo'
+
+optimisation:
+ experiment_name: 'cantilever_moo'
+ multiobjective: True
+ 
+ # Models available for Single Objective BO:
+ # GPEI - Gaussian Processes with Expected Improvement,
+ # GPKG - GP with Knowledge Gradient
+ # GPMES - GP with Maximum Entropy Search
+ 
+ # Models available for Multi Objective BO:
+ # MOO - Gaussian Processes with Expected Improvement
+ 
+ model: 'MOO'
+ num_of_iters: 27
+ num_sobol_steps: 5
+
+ num_of_params: 2
+ uniform_params: False
+
+ up_bound:
+ lo_bound:
+ 
+ parameters:
+  - name: 'width'
+    type: 'range'
+    bounds: [5.0, 30.0]
+    value_type: 'float'
+  - name: 'height'
+    type: 'range'
+    bounds: [5.0,30.0]
+    value_type: 'float'
+  
+ single:
+    objective_metric: 'stress'
+    minimize: True
+    
+ multi:
+    objective_metrics:
+    - name: 'stress'
+      minimize: True
+      threshold:
+    - name: 'mass'
+      minimize: True
+      threshold:
+ 
+        
+ outcome_constraints: []
+ constraint_metrics: []

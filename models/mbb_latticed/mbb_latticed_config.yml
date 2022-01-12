@@ -1,0 +1,68 @@
+---
+model_name: 'mbb_latticed'
+notebook_name: 'mbb_latticed'
+
+optimisation:
+ experiment_name: 'mbb_latticed'
+ multiobjective: False
+ 
+ # Models available for Single Objective BO:
+ # GPEI - Gaussian Processes with Expected Improvement,
+ # GPKG - GP with Knowledge Gradient
+ # GPMES - GP with Maximum Entropy Search
+ 
+ # Models available for Multi Objective BO:
+ # MOO - Gaussian Processes with Expected Improvement
+ 
+ model: 'GPEI'
+ num_of_iters: 30
+ num_sobol_steps: 10
+
+ num_of_params: 4
+ uniform_params: False
+
+ up_bound:
+ lo_bound:
+ 
+ parameters:
+  - name: 'to_threshold'
+    type: 'range'
+    bounds: [0.1, 0.6]
+    value_type: 'float'
+  - name: 'cell_size'
+    type: 'range'
+    bounds: [1.0, 5.0]
+    value_type: 'float'
+  - name: 'RD_min'
+    type: 'range'
+    bounds: [0.1, 0.3]
+    value_type: 'float'    
+  - name: 'RD_max'
+    type: 'range'
+    bounds: [0.3,0.6]
+    value_type: 'float'
+  - name: 'rot_y'
+    type: 'range'
+    bounds: [0.0,45.0]
+    value_type: 'float'
+  - name: 'target_valency'
+    type: 'range'
+    bounds: [0,12]
+    value_type: 'int'
+  
+ single:
+    objective_metric: 'stress_per_mass'
+    minimize: True
+    
+ multi:
+    objective_metrics:
+    - name: 'stress'
+      minimize: True
+      threshold:
+    - name: 'displacement'
+      minimize: True
+      threshold:
+ 
+        
+ outcome_constraints: []
+ constraint_metrics: []
