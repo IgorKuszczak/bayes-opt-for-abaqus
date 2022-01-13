@@ -1,0 +1,38 @@
+[
+    {
+        "components": [
+            {
+                "components": [],
+                "type": "text",
+                "value": {
+                    "string": "'stress',50.892440000000001"
+                }
+            },
+            {
+                "components": [],
+                "type": "text",
+                "value": {
+                    "string": "'mass',4.4999996982774784"
+                }
+            }
+        ],
+        "name": "Result",
+        "type": "text_list",
+        "value": {
+            "dim": {},
+            "value": [
+                {
+                    "string": "'stress',50.892440000000001"
+                },
+                {
+                    "string": "'mass',4.4999996982774784"
+                }
+            ],
+            "version": [
+                1,
+                0,
+                0
+            ]
+        }
+    }
+]

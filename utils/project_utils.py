@@ -3,6 +3,7 @@ from datetime import datetime
 from fpdf import FPDF
 import os
 import json
+import csv
 from sys import exit
 import glob
 import subprocess
@@ -130,7 +131,8 @@ class Simulation:
         self.result_metrics = result_metrics
 
         self.iterator = 0
-
+        
+        self.result_dir = os.path.abspath(os.path.join(self.model_dir, 'results.txt'))
         self.input_dir = os.path.abspath(os.path.join(self.model_dir, 'input_template.json'))
         self.output_dir = os.path.abspath(os.path.join(self.model_dir, 'output_template.json'))
 
@@ -172,12 +174,14 @@ class Simulation:
         # print output and errors from the cmd
         print(output.decode("utf-8"))
 
-        # Read the results and return as array
-        # This would be easier to deal with if we returned a dictionary (?)
-        with open(self.output_dir, 'r') as f:
-            results = json.load(f)
+        # Read the results from a text file and return as dictionary
+        
 
-        results = [float(results[0]['value']['value'][idx]['string']) for idx in range(len(self.result_metrics))]
-        result_dict = dict(zip(self.result_metrics, results))
-
-        return result_dict
+        with open(self.result_dir, mode='r') as inp:
+                reader = csv.reader(inp)                
+                result_dict = {rows[0].strip('\''):float(rows[1]) for rows in reader}
+        
+        if set(self.result_metrics)==set(result_dict):
+            return result_dict
+        else:
+            raise ValueError('Mismatch in result metric names from Ax and from nTop output file')

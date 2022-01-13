@@ -4,6 +4,7 @@ from pathlib import Path
 import pprint
 from ax.service.ax_client import AxClient
 from ax.service.utils.instantiation import ObjectiveProperties
+from ax.service.utils.report_utils import exp_to_df
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
 
@@ -161,7 +162,7 @@ def main():
 if __name__ == "__main__":
 
     load_existing_client = False
-    client_filename = 'simulation_run_12012022100307.json'
+    client_filename = 'simulation_run_12012022150951.json'
     client_filepath = os.path.join(db_dir, client_filename)
 
     if load_existing_client:
@@ -193,7 +194,8 @@ if __name__ == "__main__":
         except Exception as e:
             print('[WARNING] An exception occured while plotting!')
             print(e)
-
+    print(ax_client.generation_strategy.trials_as_df)
+    print(exp_to_df(ax_client.experiment))
     #         # Generating a report
     #     try:
     #         generate_report(opt_config, means, best_parameters)

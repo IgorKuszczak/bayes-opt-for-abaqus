@@ -1,0 +1,20 @@
+{
+    "description": "",
+    "inputs": [
+        {
+            "description": "",
+            "name": "width",
+            "type": "real",
+            "units": "mm",
+            "value": 5.0
+        },
+        {
+            "description": "",
+            "name": "height",
+            "type": "real",
+            "units": "mm",
+            "value": 30.0
+        }
+    ],
+    "title": "cantilever"
+}

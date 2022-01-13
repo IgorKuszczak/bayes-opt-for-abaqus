@@ -1,0 +1,7 @@
+**/.idea
+**/.pyc
+**/__pycache__
+**/database
+**/reports
+models/TO
+models/lattice_from_box
