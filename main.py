@@ -1,7 +1,10 @@
 import os
+import time
 import yaml
 from pathlib import Path
 import pprint
+
+import concurrent.futures
 from ax.service.ax_client import AxClient
 from ax.service.utils.instantiation import ObjectiveProperties
 from ax.service.utils.report_utils import exp_to_df
@@ -13,7 +16,6 @@ import utils.plot_utils
 
 import numpy as np
 
-pprint.sorted = lambda x, key=None: x
 
 # ntop command line .exe file (CHANGE THIS!!!)
 exe_path = r'C:\Program Files\nTopology\nTopology\ntopcl.exe'
@@ -66,8 +68,9 @@ def main():
     ## Bayesian Optimization in Service API
 
     # Generation strategy
+    NUM_SOBOL_STEPS = 5
     gs = GenerationStrategy(steps=
-                            [GenerationStep(model=Models.SOBOL, num_trials=opt_config['num_sobol_steps']),
+                            [GenerationStep(model=Models.SOBOL, num_trials=NUM_SOBOL_STEPS),
                              GenerationStep(model=Models[opt_config['model']], num_trials=-1)])
 
     # Initialize the ax client
@@ -85,14 +88,6 @@ def main():
     else:
         params = opt_config['parameters']
 
-    param_names = [param['name'] for param in params]
-
-    # Define the evaluation function
-    def eval_func(parametrization):
-        x = np.array([parametrization.get(name) for name in param_names])
-        results = sim.get_results(parametrization)
-
-        return results
 
     # Creating an experiment
     if multiobjective:
@@ -113,38 +108,47 @@ def main():
     NUM_OF_ITERS = opt_config['num_of_iters']
 
     # Manual override used for dev
-    NUM_OF_ITERS = 30
+    NUM_OF_ITERS = 10
     BATCH_SIZE = 3
 
+    # Initializing variables used in the iteration loop
+    
     abandoned_trials_count = 0
-
-    for i in range(NUM_OF_ITERS // BATCH_SIZE + 1):
+    NUM_OF_BATCHES = NUM_OF_ITERS//BATCH_SIZE if NUM_OF_ITERS%BATCH_SIZE==0 else NUM_OF_ITERS//BATCH_SIZE
+    
+    for i in range(NUM_OF_BATCHES):
+        print()
+        results = {}
+        
         trials_to_evaluate = {}
-        for _ in range(BATCH_SIZE):
+        # Sequentially generate the batch
+        for j in range(min(NUM_OF_ITERS-i*BATCH_SIZE, BATCH_SIZE)):
             parameterization, trial_index = ax_client.get_next_trial()
             trials_to_evaluate[trial_index] = parameterization
-
-            try:
-                results = {trial_index: eval_func(parameterization) for
-                           trial_index, parameterization in
-                           trials_to_evaluate.items()}
-            except KeyboardInterrupt:
-                break
-                print('Program interrupted by user')
-
-            except Exception as e:
-                ax_client.abandon_trial(trial_index=trial_index)
-                abandoned_trials_count += 1
-                print('[WARNING] Abandoning trial due to processing errors.')
-                print(e)
-                if abandoned_trials_count > 0.1 * NUM_OF_ITERS:
-                    print(
-                        '[WARNING] More than 10 % of iterations were abandoned. Consider improving the parametrization.')
+        
+        # Evaluate the results in parallel and append results to a dictionary
+        for trial_index, parametrization in trials_to_evaluate.items():
+            with concurrent.futures.ProcessPoolExecutor() as executor:
+                try:
+                    name_index = f'{i}_{j}'
+                    exec = executor.submit(sim.get_results, parametrization,name_index)
+                    results.update({trial_index: exec.result()})
+                except KeyboardInterrupt:
+                    print('Program interrupted by user')
+                    break
+                except Exception as e:
+                    ax_client.abandon_trial(trial_index=trial_index)
+                    abandoned_trials_count += 1
+                    print(f'[WARNING] Abandoning trial {trial_index} due to processing errors.')
+                    print(e)
+                    if abandoned_trials_count > 0.1 * NUM_OF_ITERS:
+                        print('[WARNING] More than 10 % of iterations were abandoned. Consider improving the parametrization.')
                     # break
                 continue
 
         for trial_index in results:
             ax_client.complete_trial(trial_index, results.get(trial_index))
+            
 
     try:
         # Save `AxClient` to a JSON snapshot.
@@ -162,17 +166,23 @@ def main():
 if __name__ == "__main__":
 
     load_existing_client = False
-    client_filename = 'simulation_run_12012022150951.json'
+    client_filename = 'simulation_run_13012022184206.json'
     client_filepath = os.path.join(db_dir, client_filename)
-
+    
+    start = time.perf_counter()
     if load_existing_client:
         # (Optional) Reinstantiate an `AxClient` from a JSON snapshot.
         ax_client = AxClient.load_from_json_file(filepath=client_filepath)
     else:
         # Run the simulation
         ax_client = main()
+    
+    finish = time.perf_counter()
+    
+    print(f'Simulation took {finish-start} seconds to complete')
 
     # Plotting
+
     save_pdf = True
     save_png = True  # This must be true for generating reports
     plot_dir = os.path.join(os.getcwd(), 'reports', 'plots')

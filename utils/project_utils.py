@@ -1,5 +1,6 @@
 from pathlib import Path
 from datetime import datetime
+
 from fpdf import FPDF
 import os
 import json
@@ -132,9 +133,8 @@ class Simulation:
 
         self.iterator = 0
         
-        self.result_dir = os.path.abspath(os.path.join(self.model_dir, 'results.txt'))
         self.input_dir = os.path.abspath(os.path.join(self.model_dir, 'input_template.json'))
-        self.output_dir = os.path.abspath(os.path.join(self.model_dir, 'output_template.json'))
+        
 
     def check_template(self):
         # check if the template exists and if not, create one
@@ -148,8 +148,8 @@ class Simulation:
 
         self.input_dir = template_filename
 
-    def get_results(self, parametrization):
-
+    def get_results(self, parametrization, index):
+        self.result_dir = os.path.abspath(os.path.join(self.model_dir, f'result_trial_{index}.txt'))
         # We first open the template
         with open(self.input_dir, 'r') as f:
             data = json.load(f)
@@ -159,13 +159,16 @@ class Simulation:
             for x in data['inputs']:
                 if x['name'] == param_name:
                     x['value'] = param_value
-
+                    
+                if x['name'] == 'result_path':
+                    x['value'] = self.result_dir
+        
         # We overwrite the input
         with open(self.input_dir, 'w') as f:
             json.dump(data, f, indent=4)
 
         # nTopCL arguments in a list
-        arguments = [self.exe_path, "-j", self.input_dir, "-o", self.output_dir, self.notebook_dir]
+        arguments = [self.exe_path, "-j", self.input_dir, self.notebook_dir]
 
         # call nTopCl from cmd
         # print(" ".join(arguments))
@@ -174,8 +177,7 @@ class Simulation:
         # print output and errors from the cmd
         print(output.decode("utf-8"))
 
-        # Read the results from a text file and return as dictionary
-        
+        # Read the results from a text file and return as dictionary        
 
         with open(self.result_dir, mode='r') as inp:
                 reader = csv.reader(inp)                

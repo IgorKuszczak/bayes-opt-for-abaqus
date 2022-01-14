@@ -137,7 +137,7 @@ class Plot:
             primary_objective=self.objective.objectives[0].metric,
             secondary_objective=self.objective.objectives[1].metric,
             absolute_metrics=objective_names,  # we choose all metrics
-            num_points=20,  # number of points in the pareto frontier
+            num_points=30,  # number of points in the pareto frontier
         )
 
         fig, axes = plt.subplots()

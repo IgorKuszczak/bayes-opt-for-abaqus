@@ -6,14 +6,20 @@
             "name": "width",
             "type": "real",
             "units": "mm",
-            "value": 5.0
+            "value": 23.19111783988774
         },
         {
             "description": "",
             "name": "height",
             "type": "real",
             "units": "mm",
-            "value": 30.0
+            "value": 20.108402003534138
+        },
+        {
+            "description": "",
+            "name": "result_path",
+            "type": "file_path",
+            "value": "D:\\Temp\\kuszczak_i\\4YP\\bayes-opt-for-ntop\\models\\cantilever_moo\\result_trial_1_2.txt"
         }
     ],
     "title": "cantilever"
