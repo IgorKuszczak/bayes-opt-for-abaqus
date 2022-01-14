@@ -1,5 +1,6 @@
 import os
 import time
+import uuid
 import yaml
 from pathlib import Path
 import pprint
@@ -130,8 +131,7 @@ def main():
         for trial_index, parametrization in trials_to_evaluate.items():
             with concurrent.futures.ProcessPoolExecutor() as executor:
                 try:
-                    name_index = f'{i}_{j}'
-                    exec = executor.submit(sim.get_results, parametrization,name_index)
+                    exec = executor.submit(sim.get_results, parametrization)
                     results.update({trial_index: exec.result()})
                 except KeyboardInterrupt:
                     print('Program interrupted by user')

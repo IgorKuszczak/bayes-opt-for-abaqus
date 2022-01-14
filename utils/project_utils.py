@@ -5,6 +5,7 @@ from fpdf import FPDF
 import os
 import json
 import csv
+import uuid
 from sys import exit
 import glob
 import subprocess
@@ -148,8 +149,10 @@ class Simulation:
 
         self.input_dir = template_filename
 
-    def get_results(self, parametrization, index):
-        self.result_dir = os.path.abspath(os.path.join(self.model_dir, f'result_trial_{index}.txt'))
+    def get_results(self, parametrization):
+        # unique filename generated on each call
+        unique_filename = f"{uuid.uuid4()}[:10]"
+        self.result_dir = os.path.abspath(os.path.join(self.model_dir, f'result_trial_{unique_filename}.txt'))
         # We first open the template
         with open(self.input_dir, 'r') as f:
             data = json.load(f)
