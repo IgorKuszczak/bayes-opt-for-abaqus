@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import uuid
 import yaml
@@ -12,38 +13,34 @@ from ax.service.utils.report_utils import exp_to_df
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
 
-from utils.project_utils import Simulation, clean_replay, generate_report, get_datestring
+from utils.project_utils import Simulation, set_up_dirs, clean_replay, get_datestring
 import utils.plot_utils
 
 import numpy as np
 
+# Select the model to use
+model_name = 'hex_solid_thick_buckle'
+config_file = f'{model_name}_config.yml'  
 
-# ntop command line .exe file (CHANGE THIS!!!)
-exe_path = r'C:\Program Files\nTopology\nTopology\ntopcl.exe'
-
-# reading configuration
-current_dir = os.getcwd()
-config_file = 'cantilever_moo/cantilever_moo_config.yml'  # this is used to switch between models
-config_dir = os.path.abspath(os.path.join(current_dir, 'models', config_file))
-
-# extracting parameters
+try:
+    config_dir = os.path.join(os.getcwd(),'run','models',model_name, config_file)
+except Exception:
+    print('Cannot find the model directory')
+    
+    
+# Read parameters from config
 with open(config_dir) as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 
-model_name = config['model_name']  # model name
+script_name = config['script_name'] # script name
 opt_config = config['optimisation']  # optimisation setup
 
-model_dir = os.path.abspath(os.path.join(current_dir, 'models', model_name))
-db_dir = os.path.abspath(os.path.join(current_dir, 'database'))
 
-# checking if directories exist and creating new directories if not
-directory_list = [model_dir, db_dir]
-for directory in directory_list:
-    Path(directory).mkdir(parents=True, exist_ok=True)
-
-# nTopology notebook
-notebook_name = config['notebook_name']
-notebook_dir = os.path.abspath(os.path.join(model_dir, f'{notebook_name}.ntop'))
+# Set up/ validate the folder structure used by the program
+temp_dir  = set_up_dirs('run','_temp')
+runfile_dir = set_up_dirs('run','runfiles')
+db_dir = set_up_dirs('database')
+    
 
 # multiobjective flag
 multiobjective = opt_config['multiobjective']
@@ -59,17 +56,16 @@ def main():
         objective_config = opt_config['single']
         result_metrics = opt_config['constraint_metrics'] + [objective_config['objective_metric']]
 
-    # instantiate the Simulation object
-    # we provide directories for temporary input and output JSON files, template for the input JSON,
-    # name of the notebook used in the simulation and the result metrics of interest
-
-    sim = Simulation(model_dir, notebook_dir, exe_path, result_metrics)
-    sim.check_template()
+    # instantiate the Simulation object with globally defined vars
+    
+    sim = Simulation(model_name,script_name,result_metrics, temp_dir, runfile_dir)
+    # Clean up runfile and _temp before running a simulation    
+    sim.clean_up_prompt()                     
 
     ## Bayesian Optimization in Service API
 
     # Generation strategy
-    NUM_SOBOL_STEPS = 5
+    NUM_SOBOL_STEPS = opt_config['num_sobol_steps']
     gs = GenerationStrategy(steps=
                             [GenerationStep(model=Models.SOBOL, num_trials=NUM_SOBOL_STEPS),
                              GenerationStep(model=Models[opt_config['model']], num_trials=-1)])
@@ -106,48 +102,49 @@ def main():
             minimize=objective_config['minimize'],  # Optional, defaults to False.
             outcome_constraints=opt_config['outcome_constraints'])
 
-    NUM_OF_ITERS = opt_config['num_of_iters']
 
-    # Manual override used for dev
-    NUM_OF_ITERS = 10
-    BATCH_SIZE = 3
+    NUM_OF_ITERS = opt_config['num_of_iters']
+    BATCH_SIZE = 1 # running sequential
 
     # Initializing variables used in the iteration loop
     
     abandoned_trials_count = 0
-    NUM_OF_BATCHES = NUM_OF_ITERS//BATCH_SIZE if NUM_OF_ITERS%BATCH_SIZE==0 else NUM_OF_ITERS//BATCH_SIZE
+    NUM_OF_BATCHES = NUM_OF_ITERS//BATCH_SIZE if NUM_OF_ITERS%BATCH_SIZE==0 else NUM_OF_ITERS//BATCH_SIZE+1
+    
     
     for i in range(NUM_OF_BATCHES):
-        print()
-        results = {}
-        
-        trials_to_evaluate = {}
-        # Sequentially generate the batch
-        for j in range(min(NUM_OF_ITERS-i*BATCH_SIZE, BATCH_SIZE)):
-            parameterization, trial_index = ax_client.get_next_trial()
-            trials_to_evaluate[trial_index] = parameterization
-        
-        # Evaluate the results in parallel and append results to a dictionary
-        for trial_index, parametrization in trials_to_evaluate.items():
-            with concurrent.futures.ProcessPoolExecutor() as executor:
-                try:
-                    exec = executor.submit(sim.get_results, parametrization)
-                    results.update({trial_index: exec.result()})
-                except KeyboardInterrupt:
-                    print('Program interrupted by user')
-                    break
-                except Exception as e:
-                    ax_client.abandon_trial(trial_index=trial_index)
-                    abandoned_trials_count += 1
-                    print(f'[WARNING] Abandoning trial {trial_index} due to processing errors.')
-                    print(e)
-                    if abandoned_trials_count > 0.1 * NUM_OF_ITERS:
-                        print('[WARNING] More than 10 % of iterations were abandoned. Consider improving the parametrization.')
-                    # break
-                continue
+        try:
+            results = {}            
+            trials_to_evaluate = {}
+            # Sequentially generate the batch
+            for j in range(min(NUM_OF_ITERS-i*BATCH_SIZE, BATCH_SIZE)):
+                parameterization, trial_index = ax_client.get_next_trial()
+                trials_to_evaluate[trial_index] = parameterization
+            
+            # Evaluate the results in parallel and append results to a dictionary
+            for trial_index, parametrization in trials_to_evaluate.items():
+                with concurrent.futures.ProcessPoolExecutor(max_workers=3) as executor:
+                    try:
+                        exec = executor.submit(sim.get_results, parametrization)
+                        results.update({trial_index: exec.result()})
+                    except Exception as e:
+                       ax_client.abandon_trial(trial_index=trial_index)
+                       abandoned_trials_count += 1
+                       print(f'[WARNING] Abandoning trial {trial_index} due to processing errors.')
+                       print(e)
+                       if abandoned_trials_count > 0.1 * NUM_OF_ITERS:
+                           print('[WARNING] More than 10 % of iterations were abandoned. Consider improving the parametrization.')
+                
+                    for trial_index in results:
+                        ax_client.complete_trial(trial_index, results.get(trial_index))
+                        
+                    
+        except KeyboardInterrupt:
+               print('Program interrupted by user')
+               break
 
-        for trial_index in results:
-            ax_client.complete_trial(trial_index, results.get(trial_index))
+
+
             
 
     try:
@@ -165,8 +162,8 @@ def main():
 
 if __name__ == "__main__":
 
-    load_existing_client = False
-    client_filename = 'simulation_run_13012022184206.json'
+    load_existing_client = True
+    client_filename = 'hex_thick_100_20_moo.json'
     client_filepath = os.path.join(db_dir, client_filename)
     
     start = time.perf_counter()
@@ -188,7 +185,6 @@ if __name__ == "__main__":
     plot_dir = os.path.join(os.getcwd(), 'reports', 'plots')
 
     P = utils.plot_utils.Plot(ax_client, plot_dir, save_pdf, save_png)
-    P.clean_plot_dir()
     if multiobjective:
         try:
             P.plot_moo_trials()
@@ -206,8 +202,11 @@ if __name__ == "__main__":
             print(e)
     print(ax_client.generation_strategy.trials_as_df)
     print(exp_to_df(ax_client.experiment))
-    #         # Generating a report
-    #     try:
-    #         generate_report(opt_config, means, best_parameters)
-    #     except Exception:
-    #         print(' [WARNING] An exception occured while generating the report')
+    print(ax_client.get_trials_data_frame())
+    
+    
+    #     # Generating a report
+    # try:
+    #     generate_report(opt_config, means, best_parameters)
+    # except Exception:
+    #     print(' [WARNING] An exception occured while generating the report')
