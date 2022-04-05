@@ -12,8 +12,8 @@ optimisation:
  # GPMES - GP with Maximum Entropy Search
  
  model: 'MOO'
- num_of_iters: 50
- num_sobol_steps: 10
+ num_of_iters: 200
+ num_sobol_steps: 20
 
  num_of_params: 2 
  uniform_params: False 
@@ -39,10 +39,10 @@ optimisation:
     objective_metrics:
     - name: 'stiffness_ratio'
       minimize: False
-      threshold: 0
+      threshold: 0.9
     - name: 'stress_ratio'
       minimize: False
-      threshold: 0
+      threshold: 0.9
         
  outcome_constraints: []
  constraint_metrics: []

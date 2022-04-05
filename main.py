@@ -20,27 +20,24 @@ import numpy as np
 
 # Select the model to use
 model_name = 'hex_solid_thick_buckle'
-config_file = f'{model_name}_config.yml'  
+config_file = f'{model_name}_config.yml'
 
 try:
-    config_dir = os.path.join(os.getcwd(),'run','models',model_name, config_file)
+    config_dir = os.path.join(os.getcwd(), 'run', 'models', model_name, config_file)
 except Exception:
     print('Cannot find the model directory')
-    
-    
+
 # Read parameters from config
 with open(config_dir) as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 
-script_name = config['script_name'] # script name
+script_name = config['script_name']  # script name
 opt_config = config['optimisation']  # optimisation setup
 
-
 # Set up/ validate the folder structure used by the program
-temp_dir  = set_up_dirs('run','_temp')
-runfile_dir = set_up_dirs('run','runfiles')
+temp_dir = set_up_dirs('run', '_temp')
+runfile_dir = set_up_dirs('run', 'runfiles')
 db_dir = set_up_dirs('database')
-    
 
 # multiobjective flag
 multiobjective = opt_config['multiobjective']
@@ -57,10 +54,10 @@ def main():
         result_metrics = opt_config['constraint_metrics'] + [objective_config['objective_metric']]
 
     # instantiate the Simulation object with globally defined vars
-    
-    sim = Simulation(model_name,script_name,result_metrics, temp_dir, runfile_dir)
+
+    sim = Simulation(model_name, script_name, result_metrics, temp_dir, runfile_dir)
     # Clean up runfile and _temp before running a simulation    
-    sim.clean_up_prompt()                     
+    sim.clean_up_prompt()
 
     ## Bayesian Optimization in Service API
 
@@ -85,7 +82,6 @@ def main():
     else:
         params = opt_config['parameters']
 
-
     # Creating an experiment
     if multiobjective:
         ax_client.create_experiment(
@@ -102,50 +98,47 @@ def main():
             minimize=objective_config['minimize'],  # Optional, defaults to False.
             outcome_constraints=opt_config['outcome_constraints'])
 
-
     NUM_OF_ITERS = opt_config['num_of_iters']
-    BATCH_SIZE = 1 # running sequential
+    BATCH_SIZE = 3 # running sequential
 
     # Initializing variables used in the iteration loop
-    
+
     abandoned_trials_count = 0
-    NUM_OF_BATCHES = NUM_OF_ITERS//BATCH_SIZE if NUM_OF_ITERS%BATCH_SIZE==0 else NUM_OF_ITERS//BATCH_SIZE+1
-    
-    
+    NUM_OF_BATCHES = NUM_OF_ITERS // BATCH_SIZE if NUM_OF_ITERS % BATCH_SIZE == 0 else NUM_OF_ITERS // BATCH_SIZE + 1
+
     for i in range(NUM_OF_BATCHES):
         try:
-            results = {}            
+            results = {}
             trials_to_evaluate = {}
             # Sequentially generate the batch
-            for j in range(min(NUM_OF_ITERS-i*BATCH_SIZE, BATCH_SIZE)):
+            for j in range(min(NUM_OF_ITERS - i * BATCH_SIZE, BATCH_SIZE)):
                 parameterization, trial_index = ax_client.get_next_trial()
                 trials_to_evaluate[trial_index] = parameterization
-            
+
             # Evaluate the results in parallel and append results to a dictionary
             for trial_index, parametrization in trials_to_evaluate.items():
                 with concurrent.futures.ProcessPoolExecutor(max_workers=3) as executor:
                     try:
-                        exec = executor.submit(sim.get_results, parametrization)
+                        eval_func = sim.analytical_hex_thick
+                        exec = executor.submit(eval_func, parametrization)
                         results.update({trial_index: exec.result()})
                     except Exception as e:
-                       ax_client.abandon_trial(trial_index=trial_index)
-                       abandoned_trials_count += 1
-                       print(f'[WARNING] Abandoning trial {trial_index} due to processing errors.')
-                       print(e)
-                       if abandoned_trials_count > 0.1 * NUM_OF_ITERS:
-                           print('[WARNING] More than 10 % of iterations were abandoned. Consider improving the parametrization.')
-                
-                    for trial_index in results:
-                        ax_client.complete_trial(trial_index, results.get(trial_index))
-                        
-                    
+                        ax_client.abandon_trial(trial_index=trial_index)
+                        abandoned_trials_count += 1
+                        print(f'[WARNING] Abandoning trial {trial_index} due to processing errors.')
+                        print(e)
+                        if abandoned_trials_count > 0.1 * NUM_OF_ITERS:
+                            print(
+                                '[WARNING] More than 10 % of iterations were abandoned. Consider improving the '
+                                'parametrization.')
+
+            for trial_index in results:
+                ax_client.complete_trial(trial_index, results.get(trial_index))
+
+
         except KeyboardInterrupt:
-               print('Program interrupted by user')
-               break
-
-
-
-            
+            print('Program interrupted by user')
+            break
 
     try:
         # Save `AxClient` to a JSON snapshot.
@@ -162,10 +155,10 @@ def main():
 
 if __name__ == "__main__":
 
-    load_existing_client = True
-    client_filename = 'hex_thick_100_20_moo.json'
+    load_existing_client = False
+    client_filename = 'hex_thick_50_10_so_0_05_rd.json'
     client_filepath = os.path.join(db_dir, client_filename)
-    
+
     start = time.perf_counter()
     if load_existing_client:
         # (Optional) Reinstantiate an `AxClient` from a JSON snapshot.
@@ -173,10 +166,10 @@ if __name__ == "__main__":
     else:
         # Run the simulation
         ax_client = main()
-    
+
     finish = time.perf_counter()
-    
-    print(f'Simulation took {finish-start} seconds to complete')
+
+    print(f'Simulation took {finish - start} seconds to complete')
 
     # Plotting
 
@@ -188,7 +181,7 @@ if __name__ == "__main__":
     if multiobjective:
         try:
             P.plot_moo_trials()
-            P.plot_posterior_pareto_frontier()
+            params = P.plot_posterior_pareto_frontier()
         except Exception as e:
             print('[WARNING] An exception occured while plotting!')
             print(e)
@@ -203,8 +196,8 @@ if __name__ == "__main__":
     print(ax_client.generation_strategy.trials_as_df)
     print(exp_to_df(ax_client.experiment))
     print(ax_client.get_trials_data_frame())
-    
-    
+    print(ax_client.get_pareto_optimal_parameters())
+
     #     # Generating a report
     # try:
     #     generate_report(opt_config, means, best_parameters)

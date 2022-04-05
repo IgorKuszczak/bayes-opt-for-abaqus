@@ -2,11 +2,15 @@ from pathlib import Path
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.stats import norm
 import os
 
-from ax.plot.pareto_utils import compute_posterior_pareto_frontier
+from ax.plot.pareto_utils import compute_posterior_pareto_frontier, get_observed_pareto_frontiers
 from ax.plot.pareto_frontier import plot_pareto_frontier
 from ax.plot.contour import _get_contour_predictions
+from ax.plot.helper import _format_dict
+
+
 # from .project_utils import clean_directory
 
 
@@ -108,75 +112,73 @@ class Plot:
 
         self.save_plot('distances_plot', fig)
         plt.show()
-        
-    def plot_contour_plt(self, param_x, param_y, metric_name, density = 50):
-        
-        best_parameters,values = self.ax_client.get_best_parameters()
+
+    def plot_contour_plt(self, param_x, param_y, metric_name, density=50):
+
+        best_parameters, values = self.ax_client.get_best_parameters()
         model = self.ax_client.generation_strategy.model
-        
+
         data, f_plt, sd_plt, grid_x, grid_y, scales = _get_contour_predictions(
             model=model,
             x_param_name=param_x,
             y_param_name=param_y,
             metric=metric_name,
-            generator_runs_dict = None,
+            generator_runs_dict=None,
             density=density)
-        
-        X, Y = np.meshgrid(grid_x,grid_y) 
-        Z_f = np.asarray(f_plt).reshape(density,density)
-        Z_sd = np.asarray(sd_plt).reshape(density,density)
-        
-        labels=[]
+
+        X, Y = np.meshgrid(grid_x, grid_y)
+        Z_f = np.asarray(f_plt).reshape(density, density)
+        Z_sd = np.asarray(sd_plt).reshape(density, density)
+
+        labels = []
         evaluations = []
-        
+
         for key, value in data[1].items():
             labels.append(key)
             evaluations.append(list(value[1].values()))
-        
+
         evaluations = np.asarray(evaluations)
         fig, axes = plt.subplots(nrows=1, ncols=2, figsize=self.figsize)
         cont1 = axes[0].contourf(X, Y, Z_f, 20, cmap='viridis')
         fig.colorbar(cont1, ax=axes[0])
         axes[0].set_title('Mean')
-        axes[0].plot(evaluations[:,0],
-                        evaluations[:,1],
-                        'o',
-                        markersize = 12,
-                        mfc='white',
-                        mec='black')
-        
+        axes[0].plot(evaluations[:, 0],
+                     evaluations[:, 1],
+                     'o',
+                     markersize=12,
+                     mfc='white',
+                     mec='black')
+
         axes[0].plot(best_parameters[param_x],
                      best_parameters[param_y],
                      'o',
-                     markersize = 13,
+                     markersize=13,
                      mfc='red',
                      mec='black')
-    
-        
-        
+
         cont2 = axes[1].contourf(X, Y, Z_sd, 20, cmap='plasma')
         fig.colorbar(cont2, ax=axes[1])
         axes[1].set_title('Standard Deviation')
-        axes[1].plot(evaluations[:,0],
-                        evaluations[:,1],
-                        'o',
-                        markersize =12,
-                        mfc='white',
-                        mec='black')
-        
+        axes[1].plot(evaluations[:, 0],
+                     evaluations[:, 1],
+                     'o',
+                     markersize=12,
+                     mfc='white',
+                     mec='black')
+
         axes[1].plot(best_parameters[param_x],
                      best_parameters[param_y],
                      'o',
-                     markersize = 13,
+                     markersize=13,
                      mfc='red',
                      mec='black')
-        
+
         for axs in axes.flat:
             axs.set(xlabel=param_x, ylabel=param_y)
-        
+
         fig.tight_layout()
-        
-        self.save_plot(plt,'contours_plot')
+
+        self.save_plot(plt, 'contours_plot')
 
     ## Multiple Objective Plotting
     def plot_moo_trials(self):
@@ -197,10 +199,11 @@ class Plot:
         plt.ylabel(objective_names[1])
         axes.set_title('Consecutive MOO Trials')
         fig.tight_layout()
-        #plt.show()
-        #self.save_plot(plt,'consecutive_moo_plot')
+        self.save_plot('consecutive_moo_plot', fig)
+        plt.show()
 
     def plot_posterior_pareto_frontier(self):
+
         objective_names = [i.metric.name for i in self.objective.objectives]
         frontier = compute_posterior_pareto_frontier(
             experiment=self.experiment,
@@ -210,6 +213,20 @@ class Plot:
             absolute_metrics=objective_names,  # we choose all metrics
             num_points=50,  # number of points in the pareto frontier
         )
+        all_metrics = frontier.means.keys()
+        # Parametrization list to retrieve
+        labels = []
+        if frontier.arm_names is None:
+            arm_names = [f"Parameterization {i}" for i in range(len(frontier.param_dicts))]
+        else:
+            arm_names = [f"Arm {name}" for name in frontier.arm_names]
+
+        for i, param_dict in enumerate(frontier.param_dicts):
+            label = []
+            for metric in all_metrics:
+                label.append(f'metric: {metric}, {frontier.means[metric][i]}, ')
+            label.append(f'parametrization:{param_dict}')
+            labels.append(label)
 
         fig, axes = plt.subplots()
         axes.scatter(*[frontier.means[i] for i in objective_names], s=70, c='k')  # Pareto front
@@ -217,9 +234,11 @@ class Plot:
         plt.xlabel(objective_names[0])
         plt.ylabel(objective_names[1])
         axes.set_title('Posterior Pareto Frontier')
+
         fig.tight_layout()
-        #plt.show()
-        #self.save_plot(plt,'pareto_plot')
+        self.save_plot('pareto_plot', fig)
+        plt.show()
+        return labels
 
     # # Plot utilities
     # def clean_plot_dir(self):
