@@ -5,6 +5,7 @@ import uuid
 import yaml
 from pathlib import Path
 import pprint
+import torch
 
 import concurrent.futures
 from ax.service.ax_client import AxClient
@@ -19,7 +20,7 @@ import utils.plot_utils
 import numpy as np
 
 # Select the model to use
-model_name = 'hex_solid_thick_buckle'
+model_name = 'hex_solid_tanh_new'
 config_file = f'{model_name}_config.yml'
 
 try:
@@ -65,7 +66,11 @@ def main():
     NUM_SOBOL_STEPS = opt_config['num_sobol_steps']
     gs = GenerationStrategy(steps=
                             [GenerationStep(model=Models.SOBOL, num_trials=NUM_SOBOL_STEPS),
-                             GenerationStep(model=Models[opt_config['model']], num_trials=-1)])
+                             GenerationStep(model=Models[opt_config['model']],
+                             num_trials=-1,
+                             model_kwargs = {"torch_dtype": torch.float, "torch_device": torch.device("cuda")}
+                             
+                             )])
 
     # Initialize the ax client
     ax_client = AxClient(generation_strategy=gs, random_seed=12345, verbose_logging=True)
@@ -99,7 +104,7 @@ def main():
             outcome_constraints=opt_config['outcome_constraints'])
 
     NUM_OF_ITERS = opt_config['num_of_iters']
-    BATCH_SIZE = 3 # running sequential
+    BATCH_SIZE = 1 # running sequential
 
     # Initializing variables used in the iteration loop
 
@@ -119,7 +124,7 @@ def main():
             for trial_index, parametrization in trials_to_evaluate.items():
                 with concurrent.futures.ProcessPoolExecutor(max_workers=3) as executor:
                     try:
-                        eval_func = sim.analytical_hex_thick
+                        eval_func = sim.get_results #!!!!!!!!!!!!
                         exec = executor.submit(eval_func, parametrization)
                         results.update({trial_index: exec.result()})
                     except Exception as e:
@@ -178,6 +183,12 @@ if __name__ == "__main__":
     plot_dir = os.path.join(os.getcwd(), 'reports', 'plots')
 
     P = utils.plot_utils.Plot(ax_client, plot_dir, save_pdf, save_png)
+    
+    print(ax_client.generation_strategy.trials_as_df)
+    print(exp_to_df(ax_client.experiment))
+    print(ax_client.get_trials_data_frame())
+    print(ax_client.get_pareto_optimal_parameters())
+    
     if multiobjective:
         try:
             P.plot_moo_trials()
@@ -193,10 +204,8 @@ if __name__ == "__main__":
         except Exception as e:
             print('[WARNING] An exception occured while plotting!')
             print(e)
-    print(ax_client.generation_strategy.trials_as_df)
-    print(exp_to_df(ax_client.experiment))
-    print(ax_client.get_trials_data_frame())
-    print(ax_client.get_pareto_optimal_parameters())
+            
+
 
     #     # Generating a report
     # try:

@@ -192,7 +192,7 @@ class Simulation:
         command = f'{self.abaqus_dir} cae noGUI={runfile}'
 
         # Normally set to True but False is good for debuging
-        suppress_output = True
+        suppress_output = False
 
         if suppress_output:
             FNULL = open(os.devnull, 'w')
