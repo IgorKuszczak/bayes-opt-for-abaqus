@@ -81,7 +81,8 @@ def create_sim(model_name,job_name,parametrization,save_cae=False):
     catia_dir = os.path.abspath(os.path.join(os.path.dirname(os.getcwd()),'..','catia','%s.stp')%model_name)
     
     # hard code this for now cause it is problematic - problem solved, should be changed
-    catia_dir = r'D:\Temp\kuszczak_i\Studentship\bayes-opt-for-abaqus\run\catia\hex_solid_tanh_buckle.stp'
+    catia_dir = r'D:\Temp\f_azam\IGOR\bayes-opt-for-abaqus\run\catia\hex_solid_tanh_buckle.stp'
+    
     
     # This should go up one directory and then to catia folder to make sense
     partDocument.ExportData(catia_dir, 'stp')
@@ -375,7 +376,7 @@ if __name__ == '__main__':
     random_idx = random.randint(0,1e6)
     model_name = 'hex_solid_tanh_buckle'
     job_name = model_name + '_test_' + str(random_idx)
-    parametrization = {'eta':0.4, 'xi':0.6,'gamma':0.5} # eta, xi, gamma
+    parametrization = {'eta':0.5, 'xi':0.5,'gamma':0.5} # eta, xi, gamma
     create_sim(model_name,job_name,parametrization,save_cae=False)
     sim_results = post_process(job_name,parametrization)
     print(sim_results)

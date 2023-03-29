@@ -1,6 +1,7 @@
 from pathlib import Path
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+#mpl.use('Agg')
 import numpy as np
 from scipy.stats import norm
 import os
@@ -40,6 +41,7 @@ class Plot:
         plt.rcParams['axes.linewidth'] = 2
         plt.rcParams['axes.axisbelow'] = True
         plt.rcParams["figure.figsize"] = (10, 6)
+        plt.rcParams['text.usetex'] = False
 
     # Single Objective Plotting
 
@@ -181,7 +183,7 @@ class Plot:
         self.save_plot(plt, 'contours_plot')
 
     ## Multiple Objective Plotting
-    def plot_moo_trials(self):
+    def plot_moo_trials(self, objective_labels=None):
         objective_names = [i.metric.name for i in self.objective.objectives]
 
         fig, axes = plt.subplots()
@@ -194,13 +196,18 @@ class Plot:
 
         # for idx, label in enumerate(df.index.values):
         #     axes.annotate(label, (x[idx], y[idx]))
-
-        plt.xlabel(objective_names[0])
-        plt.ylabel(objective_names[1])
+        if objective_labels is None:
+            plt.xlabel(objective_names[0])
+            plt.ylabel(objective_names[1])
+            
+        else:
+            plt.xlabel(objective_labels[0])
+            plt.ylabel(objective_labels[1])
+        
         axes.set_title('Consecutive MOO Trials')
         fig.tight_layout()
         self.save_plot('consecutive_moo_plot', fig)
-        plt.show()
+        #plt.show()
 
     def plot_posterior_pareto_frontier(self):
 
@@ -211,7 +218,7 @@ class Plot:
             primary_objective=self.objective.objectives[0].metric,
             secondary_objective=self.objective.objectives[1].metric,
             absolute_metrics=objective_names,  # we choose all metrics
-            num_points=50,  # number of points in the pareto frontier
+            num_points=10,  # number of points in the pareto frontier
         )
         all_metrics = frontier.means.keys()
         # Parametrization list to retrieve
@@ -230,6 +237,7 @@ class Plot:
 
         fig, axes = plt.subplots()
         axes.scatter(*[frontier.means[i] for i in objective_names], s=70, c='k')  # Pareto front
+        
 
         plt.xlabel(objective_names[0])
         plt.ylabel(objective_names[1])
@@ -239,10 +247,52 @@ class Plot:
         self.save_plot('pareto_plot', fig)
         plt.show()
         return labels
+    # def plot_posterior_pareto_frontier(self):
+        # objective_names = [i.metric.name for i in self.objective.objectives]
+        # frontier = compute_posterior_pareto_frontier(
+            # experiment=self.experiment,
+            # data=self.experiment.fetch_data(),
+            # primary_objective=self.objective.objectives[0].metric,
+            # secondary_objective=self.objective.objectives[1].metric,
+            # absolute_metrics=objective_names,
+            # num_points=100,
+        # )
+        
+        # # Extract mean and standard deviation for each metric
+        # means = {metric: frontier.means[metric] for metric in objective_names}
+        # stds = {metric: np.sqrt(frontier.covariance[metric, metric].reshape(-1, 1)) 
+                # for metric in objective_names}
+        
+        # # Get the labels for the points
+        # all_metrics = frontier.means.keys()
+        # labels = []
+        # if frontier.arm_names is None:
+            # arm_names = [f"Parameterization {i}" for i in range(len(frontier.param_dicts))]
+        # else:
+            # arm_names = [f"Arm {name}" for name in frontier.arm_names]
+        # for i, param_dict in enumerate(frontier.param_dicts):
+            # label = []
+            # for metric in all_metrics:
+                # label.append(f'metric: {metric}, {frontier.means[metric][i]}, ')
+            # label.append(f'parametrization:{param_dict}')
+            # labels.append(label)
 
-    # # Plot utilities
-    # def clean_plot_dir(self):
-    #     clean_directory(self.plot_dir)
+        # fig, axes = plt.subplots()
+        # # Add error bars to the scatter plot
+        # axes.errorbar(x=means[objective_names[0]], y=means[objective_names[1]], 
+                      # xerr=stds[objective_names[0]], yerr=stds[objective_names[1]], 
+                      # fmt='o', markersize=7, color='k', ecolor='gray', capsize=4)
+        # plt.xlabel(objective_names[0])
+        # plt.ylabel(objective_names[1])
+        # axes.set_title('Posterior Pareto Frontier')
+        # fig.tight_layout()
+        # self.save_plot('pareto_plot', fig)
+        # #plt.show()
+        # return labels
+
+    # # # Plot utilities
+    # # def clean_plot_dir(self):
+    # #     clean_directory(self.plot_dir)
 
     def save_plot(self, name, fig):
         save_name = os.path.join(self.plot_dir, name)

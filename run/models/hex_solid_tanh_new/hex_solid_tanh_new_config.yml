@@ -12,10 +12,10 @@ optimisation:
  # GPMES - GP with Maximum Entropy Search
  
  model: 'MOO'
- num_of_iters: 20
- num_sobol_steps: 10
+ num_of_iters: 100
+ num_sobol_steps: 5
 
- num_of_params: 3 
+ num_of_params: 3
  uniform_params: False 
  
  up_bound:
@@ -24,16 +24,15 @@ optimisation:
  parameters:
   - name: 'eta'
     type: 'range'
-    bounds: [0.01,0.95]
+    bounds: [0.1,0.99]
     value_type: 'float'
   - name: 'xi'
     type: 'range'
-    bounds: [0.01,0.95]
+    bounds: [0.1,0.99]
     value_type: 'float'
   - name: 'gamma'
     type: 'range'
-    bounds: [0.01,1.50]
-    value_type: 'float'
+    bounds: [0.01,1.5]
         
  single:
     objective_metric: 'stiffness_ratio'
@@ -49,4 +48,5 @@ optimisation:
       threshold: 0.9
         
  outcome_constraints: []
+ parameter_constraints: []
  constraint_metrics: []

@@ -67,13 +67,11 @@ def main():
     gs = GenerationStrategy(steps=
                             [GenerationStep(model=Models.SOBOL, num_trials=NUM_SOBOL_STEPS),
                              GenerationStep(model=Models[opt_config['model']],
-                             num_trials=-1,
-                             model_kwargs = {"torch_dtype": torch.float, "torch_device": torch.device("cuda")}
-                             
+                             num_trials=-1,                  
                              )])
-
+    # model_kwargs = {"torch_dtype": torch.float, "torch_device": torch.device("cuda")}
     # Initialize the ax client
-    ax_client = AxClient(generation_strategy=gs, random_seed=12345, verbose_logging=True)
+    ax_client = AxClient(generation_strategy=gs, random_seed=123, verbose_logging=True)
 
     # Define parameters
 
@@ -94,14 +92,16 @@ def main():
             parameters=params,
             objectives={i['name']: ObjectiveProperties(minimize=i['minimize'], threshold=i['threshold']) for i in
                         objective_config['objective_metrics']},
-            outcome_constraints=opt_config['outcome_constraints'])
+            outcome_constraints=opt_config['outcome_constraints'],
+            parameter_constraints=opt_config['parameter_constraints'])
     else:
         ax_client.create_experiment(
             name=opt_config['experiment_name'],
             parameters=params,
             objective_name=objective_config['objective_metric'],
             minimize=objective_config['minimize'],  # Optional, defaults to False.
-            outcome_constraints=opt_config['outcome_constraints'])
+            outcome_constraints=opt_config['outcome_constraints'],
+            parameter_constraints=opt_config['parameter_constraints'])
 
     NUM_OF_ITERS = opt_config['num_of_iters']
     BATCH_SIZE = 1 # running sequential
@@ -124,7 +124,7 @@ def main():
             for trial_index, parametrization in trials_to_evaluate.items():
                 with concurrent.futures.ProcessPoolExecutor(max_workers=3) as executor:
                     try:
-                        eval_func = sim.get_results #!!!!!!!!!!!!
+                        eval_func = sim.get_results
                         exec = executor.submit(eval_func, parametrization)
                         results.update({trial_index: exec.result()})
                     except Exception as e:
@@ -160,8 +160,8 @@ def main():
 
 if __name__ == "__main__":
 
-    load_existing_client = False
-    client_filename = 'hex_thick_50_10_so_0_05_rd.json'
+    load_existing_client = True
+    client_filename = 'FINAL_RD10.json'
     client_filepath = os.path.join(db_dir, client_filename)
 
     start = time.perf_counter()
@@ -184,15 +184,18 @@ if __name__ == "__main__":
 
     P = utils.plot_utils.Plot(ax_client, plot_dir, save_pdf, save_png)
     
-    print(ax_client.generation_strategy.trials_as_df)
-    print(exp_to_df(ax_client.experiment))
-    print(ax_client.get_trials_data_frame())
-    print(ax_client.get_pareto_optimal_parameters())
+    #print(ax_client.generation_strategy.trials_as_df)
+    #print(exp_to_df(ax_client.experiment))
+    #print(ax_client.get_trials_data_frame().to_csv("trials_df.csv"))
+    #print("Pareto parameters: \n")
+    #print(ax_client.get_pareto_optimal_parameters(use_model_predictions=True))
     
     if multiobjective:
         try:
             P.plot_moo_trials()
-            params = P.plot_posterior_pareto_frontier()
+            #params = P.plot_posterior_pareto_frontier()
+
+            
         except Exception as e:
             print('[WARNING] An exception occured while plotting!')
             print(e)

@@ -12,6 +12,7 @@ from job import *
 from sketch import *
 from visualization import *
 from connectorBehavior import *
+from operator import attrgetter
 
 from odbAccess import openOdb
 
@@ -28,18 +29,23 @@ l = 1.0 # beam length (excluding the nodal regions)
 h = 1.5*l # characteristic cell size in y direction (vertical span)
 H = 0.5*np.sqrt(3)*l # characteristic cell size in x direction (horizontal span)
 
-relative_density = 0.05 # imposed relative density
+relative_density = 0.23 # imposed relative density
 
 t_uni = -np.sqrt(3)*(np.sqrt(1-relative_density)-1) # uniform thickness corresponding to the given relative density (uniform)
 
 ## Material properties
-young_modulus = 7000.0 #MPa
+#young_modulus = 893.15 #MPa
+#yield_strength = 39.0
+
+young_modulus = 7000.0
 yield_strength = 130.0
+
+
 nu = 0.3 # Poisson's ratio 
 
-
-remote_strain = -0.2# Set to more than 1% to capture plastic effects
+remote_strain = -0.3 # Set to more than 1% to capture plastic effects
 y_disp = 2*h*remote_strain # this should be added in
+#y_disp = -1.5
     
 def beam_area_quart(parametrization, l_e, t_m):
     eta = parametrization['eta']
@@ -48,14 +54,43 @@ def beam_area_quart(parametrization, l_e, t_m):
 
     gamma = float(gamma)
 
-    # Calculate the intermediate values
-    y_shift = t_m/4 * (1/eta + 1)
-    x_shift = l_e * (1 - xi)/2
-    scale = t_m/4 * (1/eta - 1)
+    # Calculate the intermediate values - include some edge cases
+    if eta > 0.99:
+        y_shift = t_m/2
+        scale = 0.0        
+    else:
+        y_shift = t_m/4 * (1/eta + 1)
+        scale = t_m/4 * (1/eta - 1)  
+    
+    if xi > 0.99:
+        x_shift = 0.0
+    elif xi < 0.01:
+        x_shift = l_e/2
+    else:
+        x_shift = l_e * (1 - xi)/2
+        
 
-    # Indefinite integral 
+    
+    # Indefinite integral
+    def logcosh(x):
+        # s always has real part >= 0
+        s = np.sign(x) * x
+        p = np.exp(-2 * s)
+        return s + np.log1p(p) - np.log(2)    
     def I(x):
-        return y_shift*x - scale**2*np.log(np.cosh(np.tan(gamma)/scale*(x_shift-x)))/np.tan(gamma)
+            
+        if gamma < 0.01:
+            tang = 0.0
+            log_cosh = 0.0       
+        else:        
+            tang = np.tan(gamma)        
+            
+            if eta > 0.99:
+                log_cosh = 0.0
+            else:
+                log_cosh = logcosh(tang/scale*(x_shift - x))
+    
+        return y_shift*x - scale**2*log_cosh/np.tan(gamma)
 
     return I(l_e/2) - I(0)
   
@@ -95,7 +130,8 @@ def solve_parametrization(parametrization, l, t, rel_dens):
     # Use the Newton-Raphson method to find the solution
     t_m_sol = newton_raphson(lambda x: rd_equivalence(x, parametrization, l, t, rel_dens),
                              x0=x0, dfdx=dfdx)
-
+    
+    print("t_m/ t_uni ratio: " + str(t_m_sol/t_uni))
     # Recalculate the effective length
     eta = parametrization['eta']
     xi = parametrization['xi']
@@ -103,7 +139,22 @@ def solve_parametrization(parametrization, l, t, rel_dens):
 
     l_e_sol = l - t_m_sol*np.sqrt(3)/(3*eta)
     
-    return t_m_sol, l_e_sol    
+    return t_m_sol, l_e_sol  
+
+def thickened_analytical(parametrization):
+    # Plastic collapse only
+    eta = parametrization['eta']
+    xi = parametrization['xi']
+    
+    analytical_stiffness_ratio = eta**3/((1-xi+eta*xi)**3*(xi**3+eta**3-eta**3*xi**3))
+    if eta**2 > xi:
+        analytical_stress_ratio = 1/(1-xi+xi*eta)**2
+    else:
+        analytical_stress_ratio = (1/xi)*(eta**2/(1-xi+xi*eta)**2)
+        
+    return analytical_stiffness_ratio, analytical_stress_ratio
+    
+    
 
 def create_sim(model_name,job_name,parametrization,save_cae=False):
     '''Solving the parametrization'''
@@ -120,11 +171,6 @@ def create_sim(model_name,job_name,parametrization,save_cae=False):
     CATIA.Visible = True
     CATIA.DisplayFileAlerts = False
     
-    partDocument = CATIA.ActiveDocument
-    part = partDocument.Part    
-    parameters = part.Parameters
-    
-    
     # Check if automatic measure update is on and enable if necessary
     settingControllers = CATIA.SettingControllers
     measureSettingAtt = settingControllers.Item("CATSPAMeasureSettingCtrl")
@@ -135,8 +181,13 @@ def create_sim(model_name,job_name,parametrization,save_cae=False):
         measureSettingAtt.PartUpdateStatus = True
         measureSettingAtt.Commit()
         print("PartUpdateStatus has been enabled.")
-
     
+    partDocument = CATIA.ActiveDocument
+    part = partDocument.Part
+    
+    parameters = part.Parameters    
+
+
     effective_length = parameters.Item('l_e')
     middle_thickness = parameters.Item('t_m')
     
@@ -162,9 +213,9 @@ def create_sim(model_name,job_name,parametrization,save_cae=False):
     global l_true
     l_true = parameters.Item('L\Length').Value/1e3   
     
-    # THIS MUST BE FIXED
+    # THIS STILL NEEDS FIXING CAUSE IT IS NOT TRANSFERRABLE AS OF NOW
     catia_dir = os.path.abspath(os.path.join(os.path.dirname(os.getcwd()),'..','catia','%s.stp')%model_name)
-    #catia_dir = "D:/Temp/f_azam/IGOR/bayes-opt-for-abaqus/run/catia/hex_solid_tanh_new.stp"
+    catia_dir = "D:/Temp/f_azam/IGOR/bayes-opt-for-abaqus/run/catia/hex_solid_tanh_new.stp"
     
     # This should go up one directory and then to catia folder to make sense
     partDocument.ExportData(catia_dir, "stp")
@@ -176,10 +227,8 @@ def create_sim(model_name,job_name,parametrization,save_cae=False):
     if 'Model-1' in mdb.models.keys():
         del mdb.models['Model-1']   
         
-    # Import the step file
-    
+    # Import the step file    
     mdb.openStep(catia_dir, scaleFromFile=OFF)
-    
     sketch_name = 'unit_cell_tanh'
     part_name = 'HEX_GT_BUCKLE'
     part = model.PartFromGeometryFile(combine=False,
@@ -188,6 +237,9 @@ def create_sim(model_name,job_name,parametrization,save_cae=False):
                                       name=part_name,
                                       scale=0.001,
                                       type=DEFORMABLE_BODY)
+                                      
+    part = model.parts['HEX_GT_BUCKLE']
+    
     
     # This bit is important as it ensures correct meshing of the part
     part.ConvertToPrecise(method=RECOMPUTE_GEOMETRY)
@@ -214,11 +266,17 @@ def create_sim(model_name,job_name,parametrization,save_cae=False):
     instance = asmb.Instance(dependent=ON, name = 'INST', part=part)
     
     # Create buckling to determine buckling stress    
-    model.BuckleStep(maxEigen=None, name='BuckleStep',numEigen=3, previous='Initial', vectors=10, maxIterations=300)
+    model.BuckleStep(maxEigen=None, name='BuckleStep',numEigen=3, previous='Initial', vectors=10, maxIterations=500)
     
     # Create static step for stiffness/ strength analysis
-    model.StaticStep(initialInc=0.01, maxInc=0.01, maxNumInc=1000, minInc=0.01, name='StaticStep', previous='BuckleStep')
+    model.StaticStep(initialInc=0.01, maxInc=0.01, maxNumInc=1000, minInc=1e-15, name='StaticStep', previous='BuckleStep')
     model.steps['StaticStep'].setValues(nlgeom=ON) # setting Nlgeom to ON
+    
+    # Add stabilization
+    # model.steps['StaticStep'].setValues(
+    # adaptiveDampingRatio=0.05, continueDampingFactors=False, 
+    # stabilizationMagnitude=0.0002, stabilizationMethod=
+    # DISSIPATED_ENERGY_FRACTION)
     
     # Output requests
     model.fieldOutputRequests.keys()
@@ -227,8 +285,8 @@ def create_sim(model_name,job_name,parametrization,save_cae=False):
     # Perform auto-partition of the surface
     part.PartitionFaceByAuto(part.faces[0])
     
-    # Generate the mesh on part
-    elements_per_thickness = 5
+    # Generate the mesh on part                        
+    elements_per_thickness = 20
     mesh_size = t_min/elements_per_thickness # this gives at least n elements per smallest thickness
     part.seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=mesh_size)
     part.generateMesh()
@@ -270,8 +328,15 @@ def create_sim(model_name,job_name,parametrization,save_cae=False):
     
         asmb.Set(name='n{}'.format(idx+2), referencePoints=(p_ref, ))
         asmb.regenerate()
-        p_edges = instance.edges.getByBoundingSphere(p+(0,),t_min)
-        asmb.Surface(side1Edges=p_edges,name='surf-{}'.format(idx+2)) 
+
+        # Get the edge that is closest to the edge point
+        p_edge = instance.edges.findAt(coordinates=((p+(0,)),))
+        
+        if len(p_edge) == 0:
+            p_edge = instance.edges.getByBoundingSphere(p+(0,),t_min)
+
+        
+        asmb.Surface(side1Edges=p_edge, name='surf-{}'.format(idx+2))        
     
     
     # Coupling surfaces with edge points 
@@ -287,17 +352,39 @@ def create_sim(model_name,job_name,parametrization,save_cae=False):
     v_adjacent = [(6,3)] #(bottom,top)
     h_adjacent = [(4,2),(5,7)] # (right,left)
     
+        # Equation BC
+    v_adjacent = [(6,3)] #(bottom,top)
+    h_adjacent = [(4,2),(5,7)] # (right,left)
     
-    # # # Equation BC    
-    model.Equation(name='Equation-1', terms=((1.0, 'n6', 1), (-1.0, 'n3', 1)))
-    model.Equation(name='Equation-2', terms=((1.0, 'n6', 2), (-1.0, 'n3', 2), (1.0, 'REF', 2)))
-    model.Equation(name='Equation-3', terms=((-1.0, 'n4', 2), (1.0, 'n2', 2)))
-    model.Equation(name='Equation-4', terms=((-1.0, 'n4', 1), (1.0, 'n2', 1), (1.0, 'REF', 1)))
-    model.Equation(name='Equation-5', terms=((-1.0, 'n5', 2), (1.0, 'n7', 2)))
-    model.Equation(name='Equation-6', terms=((-1.0, 'n5', 1), (1.0, 'n7', 1), (1.0, 'REF', 1)))
-    model.Equation(name='Equation-7', terms=((1.0, 'n6', 6), (-1.0, 'n3', 6)))
-    model.Equation(name='Equation-8', terms=((1.0, 'n4', 6), (-1.0, 'n2', 6)))
-    model.Equation(name='Equation-9', terms=((1.0, 'n5', 6), (-1.0, 'n7', 6)))
+    
+    # # # Equation BC
+    # We start with the vertically adjacent nodes constraints
+    eq_idx = 1
+    for idx1,idx2 in v_adjacent:
+        # Compatibility between nodes in DOF1
+        model.Equation(name='Equation-{}'.format(eq_idx), terms=((1.0, 'n{}'.format(idx1), 1), (-1.0, 'n{}'.format(idx2), 1)))
+        eq_idx +=1 #increment
+        # Compatibility between nodes and ref in DOF2
+        model.Equation(name='Equation-{}'.format(eq_idx), terms=((1.0, 'n{}'.format(idx1), 2), (-1.0, 'n{}'.format(idx2), 2), (1.0, 'REF', 2)))
+        eq_idx +=1
+        
+    # Similarly for horizontally adjacent nodes
+    for idx1,idx2 in h_adjacent:
+        # Compatibility between nodes in DOF1
+        model.Equation(name='Equation-{}'.format(eq_idx), terms=((1.0, 'n{}'.format(idx1), 2), (-1.0, 'n{}'.format(idx2), 2)))
+        eq_idx +=1 #increment
+        # Compatibility between nodes and ref in DOF2
+        model.Equation(name='Equation-{}'.format(eq_idx), terms=((1.0, 'n{}'.format(idx1), 1), (-1.0, 'n{}'.format(idx2), 1), (1.0, 'REF', 1)))
+        eq_idx +=1
+    
+    # # Finally we ensure compatibility in DOF6 (rotational) for all pairs
+    for idx1,idx2 in v_adjacent+h_adjacent:
+        # Compatibility between nodes in DOF6
+        model.Equation(name='Equation-{}'.format(eq_idx), terms=((1.0, 'n{}'.format(idx1), 6), (-1.0, 'n{}'.format(idx2), 6)))
+        eq_idx +=1 #increment
+    
+    
+    # # # # Equation BC    
            
     # Applying a load for the buckling step
     model.ConcentratedForce(cf2=-1.0,createStepName='BuckleStep',
@@ -319,7 +406,7 @@ def create_sim(model_name,job_name,parametrization,save_cae=False):
     modelJob.submit(consistencyChecking=ON)
     modelJob.waitForCompletion()
     
-def post_process(job_name, param_vector):
+def post_process(job_name, parametrization):
     # Redefine values based on l_true
     h_true = 1.5*l_true # characteristic cell size in y direction (vertical span)
     H_true = 0.5*np.sqrt(3)*l_true # characteristic cell size in x direction (horizontal span)
@@ -338,6 +425,8 @@ def post_process(job_name, param_vector):
     s22_list = []
     e11_list = []
     e22_list = []
+    force_list = []
+    u22_list = []
     
     #initializing the values so that they are in the outside scope
     e11, e22, s22, thick_buckle =  0,0,0,0
@@ -379,6 +468,8 @@ def post_process(job_name, param_vector):
         s22_list.append(s22)
         e11_list.append(e11)
         e22_list.append(e22)
+        force_list.append(force)
+        u22_list.append(u2)
     
     ## Relative density calculations
     # Sum element volumes to obtain the actual relative density
@@ -397,6 +488,10 @@ def post_process(job_name, param_vector):
     e11_array = np.array(e11_list)
     e22_array =  np.array(e22_list)
     s22_array = np.array(s22_list)
+    
+    
+    force_array = np.array(force_list)
+    u22_array = np.array(u22_list)
    
     # Find the linear portion of the curve
     linear = 0.2/100  # Define a threshold for the linear portion of the curve
@@ -411,14 +506,27 @@ def post_process(job_name, param_vector):
     linear_fit_coefficients = np.polyfit(e22_linear, s22_linear, 1)  # Perform a least-squares polynomial fit and calculate the coefficients of the linear equation    
     thick_stiff = linear_fit_coefficients[0]
     
-    uniform_stiff = (1.5*(actual_rel_density)**3.0)*young_modulus
+    
 
     # Stress at plastic collapse
     thick_collapse = np.max(abs(s22_array))
-    uniform_collapse = yield_strength*(2.0/3.0)*(t_uni_act/l_true)**2.0
     
-    # Stress at buckling for uniform architecture
-    uniform_buckle = young_modulus*0.22*(t_uni_act/l_true)**3.0 # buckling load for uniform thickness hexagon  
+    
+    # UNIFORM PROPS (ANALYTICAL)
+    #uniform_stiff = (1.5*(actual_rel_density)**3.0)*young_modulus
+    #uniform_collapse = yield_strength*(2.0/3.0)*(t_uni_act/l_true)**2.0
+    #uniform_buckle = young_modulus*0.22*(t_uni_act/l_true)**3.0 # buckling load for uniform thickness hexagon  
+    
+    
+    # UNIFORM PROPS (EXPERIMENTAL (MPa), RD 23)
+    uniform_stiff = 139.024
+    uniform_collapse = 4.06
+    uniform_buckle = 154.16
+    
+    # UNIFORM PROPS (EXPERIMENTAL (MPa), RD 10)
+    # uniform_stiff = 1.35
+    # uniform_collapse = 0.222
+    # uniform_buckle = 0.129
     
     ## Strength   
     #sim_results['thick_collapse'] = thick_collapse
@@ -430,14 +538,20 @@ def post_process(job_name, param_vector):
     # Stiffnessas 
     #sim_results['thick_stiff'] = thick_stiff
     #sim_results['uniform_stiff'] = uniform_stiff
-    
-
-     
+         
     sim_results['stiffness_ratio'] = thick_stiff/uniform_stiff
-    sim_results['stress_ratio'] = min(thick_buckle,thick_collapse)/min(uniform_buckle, uniform_collapse)
-    # sim_results['stress_ratio_collapse'] = thick_collapse/uniform_collapse
-    # sim_results['actual_rel_density'] = actual_rel_density
-    # sim_results['rel_density_error'] = 100*(relative_density - actual_rel_density)/actual_rel_density
+    #sim_results['stress_ratio'] = thick_buckle/uniform_buckle
+    sim_results['stress_ratio'] = min(thick_buckle, thick_collapse)/ min(uniform_stiff, uniform_buckle)
+    
+    # For monitoring the results
+    # Calculate analytical stiffness and stress ratios
+    #analytical_stiffness_ratio, analytical_stress_ratio = thickened_analytical(parametrization)
+    
+    #sim_results['stiffness_analytical_fea_error'] = 100*(analytical_stiffness_ratio - sim_results['stiffness_ratio'])/sim_results['stiffness_ratio']
+    #sim_results['stress_analytical_fea_error'] = 100*(analytical_stress_ratio - sim_results['stress_ratio'])/sim_results['stress_ratio']
+    
+    sim_results['thick_buckle/thick_collapse'] = thick_buckle/thick_collapse
+    sim_results['rel_density_error'] = 100*(relative_density - actual_rel_density)/actual_rel_density 
     
     odb.close()
     
@@ -455,10 +569,10 @@ def post_process(job_name, param_vector):
 if __name__ == '__main__':
     # random naming is added to avoid the problem with lock files
     random_idx = random.randint(0,1e6)
-    model_name = 'hex_solid_tanh_buckle'
+    model_name = 'hex_solid_tanh_new'
     job_name = model_name + '_test_' + str(random_idx)
-    # uniform thickness is (0.99, 0.99, 0.01)
-    parametrization = {'eta':0.5, 'xi':0.5, 'gamma':0.5} # eta, xi, gamma
+
+    parametrization = {'eta': 0.1, 'xi':0.5576523731281741, 'gamma':0.22607099997088867} # eta, xi, gamma
     create_sim(model_name,job_name,parametrization,save_cae=False)
     sim_results = post_process(job_name,parametrization)
     print(sim_results)
